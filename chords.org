@@ -1,0 +1,30 @@
+#+title: Harmonic space
+#+author: Henrik Frisk
+* Notatation
+This does not compile.
+#+begin_src lilypond
+\version "2.22.0"
+\language "english"
+
+\include "ekme-heji.ily"
+
+\new Score
+<<
+    \new Staff
+    {
+        \new Voice
+        {
+          \accidentalStyle "dodecaphonic"
+
+          <f bf aobb' eobb'>1^\markup {
+            \center-column {
+               64/49
+               96/49
+               4/3
+               1/1
+              }}
+          <f afoaa c' dfoaa' >1
+        }
+    }
+>>
+#+end_src

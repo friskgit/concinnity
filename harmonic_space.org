@@ -391,7 +391,11 @@ Alternative for higher orders
 #+end_src
 
 * GUI
-#+begin_src sclang :results none
+:PROPERTIES:
+:tangle:   ./hamronic_space_gui.scd
+:END:
+
+#+begin_src sclang :results none :tangle no
   (
   var countSec = 0, countMin = 0, secString;
   AppClock.sched(0.0,{ arg time;
@@ -411,7 +415,7 @@ Alternative for higher orders
   s.plotTree;
 #+end_src
 #+name: main_gui
-#+begin_src sclang
+#+begin_src sclang :tangle harmonic_space_gui.scd
   (
   var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters;
   wind = Window.new.front;
@@ -583,7 +587,7 @@ Alternative for higher orders
   // 3 -> 4 ->  0 -> 4 | 8
 #+end_src
 
-#+begin_src sclang :results none :noweb yes
+#+begin_src sclang :results none :noweb yes :tangle link harmonic_space_main.scd
   <<synth_main>>
   <<shift_main>>
   <<change_chord>>
@@ -742,8 +746,6 @@ Definition of the chords and spat and stuff.
     <<dist_expand_a>>
     amps = Array.with(0.1, 0.1, 0.1);
     // Arrays for notes and spatialization.
-    <<pitch_arrays>>
-    <<spat_arrays>>  
     chord = ~freqs.value(~notesArrays.rowAt(ndx), base);
     "Chord array: ".post; chord.postln;
     "Azimuth array: ".post; ~spatArrays.rowAt(ndx).postln;
@@ -1048,8 +1050,8 @@ Main routine ambisonics
     //    <<shift_notes_arrays>>
     <<shift_chord_func>>
     <<shift_change_source>>
-    <<pitch_arrays>>
-    <<spat_arrays>>
+//    <<pitch_arrays>>
+//    <<spat_arrays>>
     <<shift_vol>>
     <<shift_input_vol>>
   };
