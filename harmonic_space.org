@@ -1,0 +1,1387 @@
+# Created 2022-10-31 mån 00:45
+#+title: 7-limit
+#+author: Henrik Frisk
+* Scripts
+#+begin_src shell :results output raw :exports code :noweb yes :wrap "SRC sclang :tangle sclang_output.sc" 
+  perl make_scarray.pl
+#+end_src
+
+#+begin_src sclang :results none
+  ~azArrays.add([1.7, 1.7, 1.7]);
+  ~elArrays.add([3, 2, 4])
+  ~radArrays.add([3, 2, 4])
+#+end_src
+** pitch to space mapping
+#+CONSTANTS: pi=3.14159265358979323846
+
+*** pitches used (extracted from lilypond)
+
+Simple version
+#+begin_src shell
+  grep '[0-9]\+\/[0-9]\+' chords.ly | sed 's/1.1//g'
+#+end_src
+
+Better, run this to update [[file:ratios_sc.txt]]
+#+begin_src shell
+  grep '[0-9]\+\/[0-9]\+' chords.ly > ratios.txt
+  tr -d " " < ratios.txt > ratios_sc.txt
+#+end_src
+
+#+RESULTS:
+
+Then, run this to create the table. Add '#+name: pitches' to the result block in order to have it read by the scripts below.
+Then run [[make_pitch_arrays][make_pitch_arrays]] and [[make_spat_arrays][make_spat_arrays]] to generate the data for suppercollider.
+
+The result needs to be named ~pitches~
+#+name: create_pitch_list
+#+begin_src perl :results value :name "#+name: pitches"
+  my $filename = './ratios_sc.txt';
+  my $line;
+
+  open(FH, '<', $filename) or die $!;
+  while(<FH>) {
+#      if (index($_, "1/1") != -1) {
+#          last;
+#      }
+      $line = $line.$_;
+  }
+  close(FH);
+  return $line;
+#+end_src
+
+#+RESULTS: create_pitch_list
+#+name: pitches
+| 15/8  |
+| 3/2   |
+| 5/4   |
+| 8/5   |
+| 3/2   |
+| 6/5   |
+| 16/15 |
+| 8/5   |
+| 4/3   |
+| 5/4   |
+| 5/3   |
+| 4/3   |
+| 7/4   |
+| 12/7  |
+| 7/6   |
+| 7/4   |
+| 12/7  |
+| 8/7   |
+| 15/8  |
+| 15/14 |
+| 3/2   |
+| 40/21 |
+| 5/3   |
+| 4/3   |
+| 32/21 |
+| 16/9  |
+| 4/3   |
+| 64/49 |
+| 96/49 |
+| 4/3   |
+| 32/27 |
+| 10/9  |
+| 16/9  |
+| 10/9  |
+| 40/21 |
+| 5/3   |
+| 15/8  |
+| 3/2   |
+| 5/4   |
+| 5/4   |
+| 1/1   |
+| 5/3   |
+| 10/9  |
+| 5/3   |
+| 4/3   |
+| 64/45 |
+| 15/14 |
+| 12/7  |
+| 5/4   |
+| 5/3   |
+| 4/3   |
+| 5/3   |
+| 9/8   |
+| 7/4   |
+| 9/8   |
+| 3/2   |
+| 6/5   |
+| 64/45 |
+| 27/14 |
+| 5/3   |
+
+
+*** table of pitch-space mapping
+Following the map in the paper Crystal Growth [cite:@tenney08_growt_harmon_space] by Tenney the following mapping between pitch and space is proposed:
+#+name: pitch_space_map
+| ndx | ratio   |          az |         el | rad |
+|-----+---------+-------------+------------+-----|
+|   1 | 1/1     |         0.0 |          0 |   0 |
+|   2 | 3/2     |   1.5707963 |          0 |   1 |
+|   3 | 8/5     |   3.1415927 |          0 |   1 |
+|   4 | 4/3     |  -1.5707963 |          0 |   1 |
+|   5 | 5/4     |         0.0 |          0 |   1 |
+|   6 | 7/4     |  0.78539816 | 0.47123890 |   1 |
+|   7 | 12/7    |   2.3561945 | 0.47123890 |   1 |
+|   8 | 8/7     |  -2.3561945 | 0.47123890 |   1 |
+|   9 | 7/6     | -0.78539816 | 0.47123890 |   1 |
+|  10 | 15/14   |  0.39269908 | 0.62831853 |   1 |
+|  11 | 96/49   |   2.7488936 | 0.62831853 |   1 |
+|  12 | 64/49   |  -2.7488936 | 0.62831853 |   1 |
+|  13 | 10/17   |  0.39269908 | 0.62831853 |   1 |
+|  14 | 15/8    |  0.78539816 | 0.62831853 |   2 |
+|  15 | 9/8     |   1.5707963 | 0.62831853 |   2 |
+|  16 | 6/5     |   2.3561945 | 0.62831853 |   2 |
+|  17 | 16/15   |  -2.3561945 | 0.62831853 |   2 |
+|  18 | 16/9    |  -1.5707963 | 0.62831853 |   2 |
+|  19 | 5/3     | -0.78539816 | 0.78539816 |   2 |
+|  20 | 45/28   |  0.78539816 | 0.78539816 |   2 |
+|  21 | 64/32   |   1.4137167 | 0.78539816 |   2 |
+|  22 | 27/14   |   1.7278760 | 0.78539816 |   2 |
+|  23 | 256/114 |  -2.3561945 | 0.78539816 |   2 |
+|  24 | 32/21   |  -1.7278760 | 0.78539816 |   2 |
+|  25 | 4/21    | -0.78539816 | 0.78539816 |   2 |
+|  26 | 45/32   |  0.78539816 | 0.94247780 |   3 |
+|  27 | 27/16   |   1.5707963 | 0.94247780 |   3 |
+|  28 | 9/5     |   2.3561945 | 0.94247780 |   3 |
+|  29 | 36/35   |   2.5132741 | 0.94247780 |   3 |
+|  30 | 48/35   |   2.8274334 | 0.94247780 |   3 |
+|  31 | 64/35   |  -2.9845130 | 0.94247780 |   3 |
+|  32 | 128/105 |  -2.5132741 | 0.94247780 |   3 |
+|  33 | 512/315 |  -2.3561945 | 0.94247780 |   3 |
+|  34 | 64/45   |  -2.5132741 | 0.94247780 |   3 |
+|  35 | 258/189 |  -1.8849556 | 0.94247780 |   3 |
+|  36 | 64/63   |  -2.0420352 | 0.94247780 |   3 |
+|  37 | 32/27   |  -1.5707963 | 0.94247780 |   3 |
+|  38 | 80/63   |  -1.2566371 | 0.94247780 |   3 |
+|  39 | 10/9    | -0.78539816 | 0.94247780 |   3 |
+|  40 | 16/5    |  -2.5132741 | 0.62831853 |   2 |
+|  41 | 40/21   | -0.52359878 | 0.94247780 |   2 |
+#+TBLFM: @3$3=$pi*0.5::@3$4=0::@4$3=$pi::@5$3=-0.5*$pi::@7$3=$pi*0.25::@7$4=$pi*0.5*0.3::@8$3=0.75*$pi::@8$4=$pi*0.5*0.3::@9$3=-0.75*$pi::@9$4=$pi*0.5*0.3::@10$3=-0.25*$pi::@10$4=$pi*0.5*0.3::@11$3=0.125*$pi::@11$4=0.4*0.5*$pi::@12$3=0.875*$pi::@12$4=0.4*0.5*$pi::@13$3=-0.875*$pi::@13$4=0.4*0.5*$pi::@14$3=0.125*$pi::@14$4=0.4*0.5*$pi::@15$3=0.25*$pi::@15$4=0.4*0.5*$pi::@16$3=0.5*$pi::@16$4=0.4*0.5*$pi::@17$3=0.75*$pi::@17$4=0.4*0.5*$pi::@18$3=-0.75*$pi::@18$4=0.4*0.5*$pi::@19$3=-0.5*$pi::@19$4=0.4*0.5*$pi::@20$3=-0.25*$pi::@21$3=0.25*$pi::@21$4=0.5*0.5*$pi::@22$3=0.45*$pi::@22$4=0.5*0.5*$pi::@23$3=0.55*$pi::@23$4=0.5*0.5*$pi::@24$3=-0.75*$pi::@24$4=0.5*0.5*$pi::@25$3=-0.55*$pi::@25$4=0.5*0.5*$pi::@26$3=-0.25*$pi::@26$4=0.5*0.5*$pi::@27$3=0.25*$pi::@27$4=0.6*0.5*$pi::@28$3=0.5*$pi::@28$4=0.6*0.5*$pi::@29$3=0.75*$pi::@29$4=0.6*0.5*$pi::@30$3=0.8*$pi::@30$4=0.6*0.5*$pi::@31$3=0.9*$pi::@31$4=0.6*0.5*$pi::@32$3=-0.95*$pi::@32$4=0.6*0.5*$pi::@33$3=-0.8*$pi::@33$4=0.6*0.5*$pi::@34$3=-0.75*$pi::@34$4=0.6*0.5*$pi::@35$3=-0.8*$pi::@35$4=0.6*0.5*$pi::@36$3=-0.6*$pi::@36$4=0.6*0.5*$pi::@37$3=-0.65*$pi::@37$4=0.6*0.5*$pi::@38$3=-0.5*$pi::@38$4=0.6*0.5*$pi::@39$3=-0.4*$pi::@39$4=0.6*0.5*$pi::@40$3=-0.25*$pi::@40$4=0.6*0.5*$pi::@41$3=-0.8*$pi::@41$4=0.4*0.5*$pi::@42$3=$pi/3*-2
+*** code to manipulate data
+Output one ratio from the table
+#+begin_src shell :var data=pitches[3:4,0]
+  echo $data
+#+end_src
+
+#+RESULTS:
+: 8/5
+
+List all ratios from the pitches table in lisp
+#+begin_src emacs-lisp :var alst=pitch_space_map[2:3,1] pit=pitches[,0]
+  (cons (car pit) (nthcdr 2 pit))
+#+end_src
+
+Browse through the pitch_space_map table in scheme (example)
+#+begin_src scheme :results value :exports none :var aval=pitch_space_map[1:2,1] eval=pitch_space_map[1:2,2] dval=pitch_space_map[1:2,3]
+  (define (spat_aed x y z result)
+    (cond ((null? x) result)
+          ((spat_aed (cdr x) (cdr y) (cdr z) (append result (list (car x) (car y) (car z)))))))
+  (spat_aed aval eval dval '())
+#+end_src
+
+Script to create the MatrixArray for supercollider from the [[pitches][pitch list]]. The result needs to be named ~pitch_arrays~
+#+name: make_pitch_arrays
+#+begin_src perl :results output raw :var data=pitches space=pitch_space_map :exports code :noweb yes :wrap "SRC sclang :tangle sclang_output.sc" 
+  sub org_table_size  
+  {
+      # return the number of columns and rows in a table
+      my ($table) = @_;
+      my $y = $$table[0];
+      return(scalar(@$y), scalar (@$table));
+  }
+  my @result;
+
+  my ($cols, $rows) = org_table_size($space);
+  my ($pcol, $prow) = org_table_size($data);
+  my $crntp = 0;
+  my @az = 0;
+  my @el = 0;
+  my @rad = 0;
+  my $res_string = "";
+  my $sc_array = "~notesArrays = MatrixArray.with([[";
+  my $sc_array_end = "]);";
+  my $counter = 0;
+  my $test = "";
+  my $index = 0;
+
+  $res_string = $sc_array;
+  for my $i ($0..$prow-1) {
+      $index++;
+      $crntp = $$data[$i][0];
+      if($counter < 2) {
+          $res_string = $res_string.$crntp.", ";
+          $counter++;
+      } else {
+          $res_string = $res_string.$crntp;
+          $counter = 0;
+          if($index < $prow) {
+              $res_string = $res_string."], ["
+          } else {
+              $res_string = $res_string."]]);\n"
+          }
+      }
+  }
+  print $res_string;
+#+end_src
+
+#+RESULTS: make_pitch_arrays
+#+name: pitch_arrays
+#+begin_SRC sclang :tangle sclang_output.sc
+~notesArrays = MatrixArray.with([[15/8, 3/2, 5/4], [8/5, 3/2, 6/5], [16/15, 8/5, 4/3], [5/4, 5/3, 4/3], [7/4, 12/7, 7/6], [7/4, 12/7, 8/7], [15/8, 15/14, 3/2], [40/21, 5/3, 4/3], [32/21, 16/9, 4/3], [64/49, 96/49, 4/3], [32/27, 10/9, 16/9], [10/9, 40/21, 5/3], [15/8, 3/2, 5/4], [5/4, 1/1, 5/3], [10/9, 5/3, 4/3], [64/45, 15/14, 12/7], [5/4, 5/3, 4/3], [5/3, 9/8, 7/4], [9/8, 3/2, 6/5], [64/45, 27/14, 5/3]]);
+#+end_SRC
+
+Script to create the MatrixArray for supercollider from the [[pitches][pitch list]] and the mapped spatialisations in the [[*table of pitch-space mapping][pitch_space table]]. The result needs to be named ~spat_arrays~
+#+name: make_spat_arrays
+#+begin_src perl :results output raw :var data=pitches space=pitch_space_map :exports code :noweb yes :wrap "SRC sclang :tangle sclang_output.sc" 
+  sub org_table_size  
+  {
+      # return the number of columns and rows in a table
+      my ($table) = @_;
+      my $y = $$table[0];
+      return(scalar(@$y), scalar (@$table));
+  }
+  my @result;
+
+  my ($cols, $rows) = org_table_size($space);
+  my ($pcol, $prow) = org_table_size($data);
+  my $crntp = 0;
+  my @az = 0;
+  my @el = 0;
+  my @rad = 0;
+  my $res_string = "";
+  my $sc_array = "MatrixArray.with([[";
+  my $sc_array_end = "]);";
+  my $counter = 0;
+  my $test = "";
+  my $index = 0;
+
+  for my $i ($0..$prow-1) {
+      $crntp = $$data[$i][0];
+      for my $j ($0..$rows-1) {
+          if($$space[$j][1] eq $crntp) {
+              $az[$i] = $$space[$j][2];
+              $el[$i] = $$space[$j][3];
+              $rad[$i] = $$space[$j][4];
+          }
+      }
+  }
+
+  ## aximuth
+  $res_string = $res_string."~spatArrays = ".$sc_array;
+  foreach(@az) {
+      $index++;
+      if($counter < 2) {
+          $res_string = $res_string.$_;
+          $res_string = $res_string.", ";
+          $counter++;
+      } else {
+          $res_string = $res_string.$_;
+          $counter = 0;
+          if($index < $#az) {
+              $res_string = $res_string."], ["
+          } else {
+              $res_string = $res_string."]]);\n"
+          }
+      }
+  }
+  $index = 0;
+
+  ## elevation
+  $res_string = $res_string."~elArrays = ".$sc_array;
+  foreach(@el) {
+      $index++;
+      if($counter < 2) {
+          $res_string = $res_string.$_;
+          $res_string = $res_string.", ";
+          $counter++;
+      } else {
+          $res_string = $res_string.$_;
+          $counter = 0;
+          if($index < $#az) {
+              $res_string = $res_string."], ["
+          } else {
+              $res_string = $res_string."]]);\n"
+          }
+      }
+  }
+  $index = 0;
+
+  ## radius
+  $res_string = $res_string."~radArrays = ".$sc_array;
+  my $multi = 3;
+  foreach(@rad) {
+      $index++;
+      if($counter < 2) {
+          $res_string = $res_string.$_*$multi;
+          $res_string = $res_string.", ";
+          $counter++;
+      } else {
+          $res_string = $res_string.$_*$multi;
+          $counter = 0;
+          if($index < $#az) {
+              $res_string = $res_string."], ["
+          } else {
+              $res_string = $res_string."]]);\n"
+          }
+      }
+  }
+  $index = 0;
+  print $res_string;
+#+end_src
+
+#+RESULTS: make_spat_arrays
+#+name: spat_arrays
+#+begin_SRC sclang :tangle sclang_output.sc
+~spatArrays = MatrixArray.with([[0.78539816, 1.5707963, 0.0], [3.1415927, 1.5707963, 2.3561945], [-2.3561945, 3.1415927, -1.5707963], [0.0, -0.78539816, -1.5707963], [0.78539816, 2.3561945, -0.78539816], [0.78539816, 2.3561945, -2.3561945], [0.78539816, 0.39269908, 1.5707963], [-0.52359878, -0.78539816, -1.5707963], [-1.727876, -1.5707963, -1.5707963], [-2.7488936, 2.7488936, -1.5707963], [-1.5707963, -0.78539816, -1.5707963], [-0.78539816, -0.52359878, -0.78539816], [0.78539816, 1.5707963, 0.0], [0.0, 0.0, -0.78539816], [-0.78539816, -0.78539816, -1.5707963], [-2.5132741, 0.39269908, 2.3561945], [0.0, -0.78539816, -1.5707963], [-0.78539816, 1.5707963, 0.78539816], [1.5707963, 1.5707963, 2.3561945], [-2.5132741, 1.727876, -0.78539816]]);
+~elArrays = MatrixArray.with([[0.62831853, 0, 0], [0, 0, 0.62831853], [0.62831853, 0, 0], [0, 0.78539816, 0], [0.4712389, 0.4712389, 0.4712389], [0.4712389, 0.4712389, 0.4712389], [0.62831853, 0.62831853, 0], [0.9424778, 0.78539816, 0], [0.78539816, 0.62831853, 0], [0.62831853, 0.62831853, 0], [0.9424778, 0.9424778, 0.62831853], [0.9424778, 0.9424778, 0.78539816], [0.62831853, 0, 0], [0, 0, 0.78539816], [0.9424778, 0.78539816, 0], [0.9424778, 0.62831853, 0.4712389], [0, 0.78539816, 0], [0.78539816, 0.62831853, 0.4712389], [0.62831853, 0, 0.62831853], [0.9424778, 0.78539816, 0.78539816]]);
+~radArrays = MatrixArray.with([[6, 3, 3], [3, 3, 6], [6, 3, 3], [3, 6, 3], [3, 3, 3], [3, 3, 3], [6, 3, 3], [6, 6, 3], [6, 6, 3], [3, 3, 3], [9, 9, 6], [9, 6, 6], [6, 3, 3], [3, 0, 6], [9, 6, 3], [9, 3, 3], [3, 6, 3], [6, 6, 3], [6, 3, 6], [9, 6, 6]]);
+#+end_SRC
+
+* Info
+The function to transform ratio $m/n$ to cents is:
+\begin{equation}
+1200 * log(m/n) / log(2)
+\end{equation}
+And the formula for Hertz is simply:
+\begin{equation}
+m/n*freq
+\end{equation}
+To reduce ratios (Hållsten)
+#+begin_src sclang
+  f = {|a, b|
+    // find the greatest common denominator
+    var gcd = a.gcd(b);
+    // divide the two numbers
+    [(a / gcd).asInteger, (b / gcd).asInteger];
+  };
+
+  f.value(3, 2).postln;
+#+end_src
+* Boot Server
+Set JackRouter to be the interface on Linux
+#+name: boot_jack
+#+begin_src sclang :results none
+  (
+  o = Server.local.options; // Get the local server's options
+  o.numOutputBusChannels = 32;
+  o.numWireBufs = 128;
+  o.memSize  = (65536 * 4);
+  //     s.makeWindow;
+  //  s.makeGui(p);
+  s.boot;
+  )
+#+end_src
+
+Alternative for higher orders
+#+begin_src sclang :results none
+  (
+  o = Server.local.options; // Get the local server's options
+  o.numInputBusChannels = 2; // Set Input to number of Inputs
+  o.numOutputBusChannels = 64; // lets start after chan 36 so as not to see the mic input
+  o.numAudioBusChannels = 1024; // default is 1024
+  o.blockSize = 256;
+  o.numWireBufs = 64 * 16;  // for more complex SynthDefs
+  o.memSize = 2.pow(16);  // default 2.pow(13)
+  o.sampleRate = 48000;
+  s.boot;
+  )
+#+end_src
+
+* GUI
+#+begin_src sclang :results none
+  (
+  var countSec = 0, countMin = 0, secString;
+  AppClock.sched(0.0,{ arg time;
+    countSec = (countSec+1)%60;
+    if(countSec == 0,
+          { countMin = countMin+1 });
+    if(countSec < 10,
+          {secString = "0"++countSec; },
+          {secString = countSec; });
+    countMin.post; ".".post; secString.postln;
+    1;
+  });
+  )
+#+end_src
+
+#+begin_src sclang :results none
+  s.plotTree;
+#+end_src
+#+name: main_gui
+#+begin_src sclang
+  (
+  var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters;
+  wind = Window.new.front;
+  mapA = ControlSpec(0, 4, \linear, 0.01); // min, max, mapping, step
+  mapB = ControlSpec(0, 1, \linear, 0.01); // min, max, mapping, step
+
+  // Sax volume                                                                               
+  text = StaticText(wind, Rect(20, 20, 40, 20)).align_(\center);
+  annotX = StaticText(wind, Rect(15, 350, 50, 20)).align_(\center);
+  annotX.string_("PitchShift");
+  sax = Slider(wind, Rect(20, 50, 40, 300))
+  .value_(0.0)
+  .action_({
+    text.string_(mapA.map(sax.value).asString);
+    ~shiftVol.value(sax.value);  
+  });
+  sax.action.value;
+
+  // Input volume
+  textC = StaticText(wind, Rect(90, 20, 40, 20)).align_(\center);
+  annotZ = StaticText(wind, Rect(85, 350, 50, 20)).align_(\center);
+  annotZ.string_("Input");
+  input = Slider(wind, Rect(90, 50, 40, 300))
+  .value_(0.0)
+  .action_({
+    textC.string_(mapA.map(input.value).asString);
+    ~shiftInputVol.value(input.value);
+  });
+  input.action.value;
+
+  {
+    SendPeakRMS.kr(Dust.ar(20), 20, 3, "/replyAddress")
+  }.play;
+
+  // Synth volume
+  textB = StaticText(wind, Rect(160, 20, 40, 20)).align_(\center);
+  annotY = StaticText(wind, Rect(155, 350, 50, 20)).align_(\center);
+  annotY.string_("Synth");
+  synth = Slider(wind, Rect(160, 50, 40, 300))
+  .value_(0.2)
+  .action_({
+    textB.string_(mapB.map(synth.value).asString);
+    //~globSynthVol.set(synth.value);
+  });
+  synth.action.value;
+
+  // Button
+  step = Button(wind, Rect(240, 50, 100, 100))
+  .states_([
+    ["0"], ["1"], ["2"],["3"], ["4"],["5"], ["6"],["7"], ["8"],["9"], ["10"],["11"], ["12"],["B1"], ["B2"],["B3"], ["B4"],["C1"], ["C2"],["C3"], ["C4"], ["End"];
+  ])
+  .action_({ arg butt;
+  "Current event is: ".post;
+    (butt.value - 1).postln;
+    ~change.value(butt.value-1);
+  });
+  step.font = Font("Helvetica", 32, bold: true);
+
+  number = NumberBox(wind, Rect(240, 170, 100, 40)).align_(\center);
+  number.font  = Font("Helvetica", 26, bold: true);
+  number.string = 1;
+  number.action = {arg num;
+    step.value = num.value-1;
+  };
+
+  // Goto
+  plus = Button(wind, Rect(240, 230, 45, 60))
+  .string_("+")
+  .action_({ arg butt;
+    step.value = step.value+1;
+  });
+  plus.font = Font("Helvetica", 32, bold: true);
+
+  minus = Button(wind, Rect(295, 230, 45, 60))
+  .string_("-")
+  .action_({ arg butt;
+    step.value = step.value-1;
+  });
+  minus.font = Font("Helvetica", 32, bold: true);
+
+
+  time = StaticText(wind, Rect(420, 30, 200, 100)); //.align_(\center);
+  time.font = Font("Helvetica", 64, bold: true);
+  time.string_("00:00");
+
+  start = Button(wind, Rect(420, 140, 160, 45))
+  .string_("Start")
+  .action_({ arg butt;
+    if(start.string == "Start",
+          { myClock.value();
+            start.string_("Stop");
+          },
+          {
+            AppClock.clear;
+            start.string_("Start");	  
+          });
+  });
+  start.font = Font("Helvetica", 24, bold: true);
+
+  mute = Button(wind, Rect(420, 200, 160, 45))
+  .string_("Mute")
+  .action_({ arg butt;
+    //    ~shiftInputVol.value(input.value);
+    if(mute.string == "Mute",
+          {
+            currentInputVal = input.value;	  
+            input.valueAction_(0);	  
+            mute.string_("Unmute");
+          },
+          {
+            mute.string_("Mute");
+            input.valueAction_(currentInputVal);	  
+          });
+
+  });
+  mute.font = Font("Helvetica", 24, bold: true);
+
+  myClock = {
+    var countSec = 0, countMin = 0, secString, res;
+    AppClock.sched(0.0,{ arg tme;
+          countSec = (countSec+1)%60;
+          if(countSec == 0,
+            { countMin = countMin+1 });
+          if(countSec < 10,
+            {secString = "0"++countSec; },
+            {secString = countSec; });
+          if(countMin < 10,
+            {countMin = "0"++countMin; });
+          //countMin.post; ".".post; secString.postln;
+          time.string = countMin++":"++secString;
+          1;
+    });
+  };
+
+  meters = Button(wind, Rect(420, 300, 160, 45))
+  .string_("Meter")
+  .action_({s.meter;});
+  meters.font = Font("Helvetica", 24, bold: true);
+  //myClock.value.postln;
+  )
+#+end_src
+
+#+begin_src sclang :results none
+  a = { SinOsc.ar(558, 0, 0.1)}.play
+  b = { SinOsc.ar(523, 0, 0.1)}.play
+  c = { SinOsc.ar(419, 0, 0.1)}.play
+  a.stop;
+#+end_src
+* Main
+#+name: change_chord
+#+begin_src sclang :results none
+  ~change = { arg index = 0;
+    var root;
+    ~changeChord.value(index);
+    switch(index,
+          13, {root = ~baseFifth},
+          14, {root = ~baseSecond},
+          15, {root = ~baseSeven},
+          17, {root = ~baseFifth},
+          18, {root = ~baseSecond},
+          19, {root = ~baseSeven},
+          root = ~baseFreq
+    );
+    ~notesArrayFunc.value(index, ~defaultChOffset, root);
+  };
+  //~change.value(19);
+  //     s.meter;
+  // 6 dominant 7 avspänning 9 öppet 
+  // 3 -> 4 ->  0 -> 4 | 8
+#+end_src
+
+#+begin_src sclang :results none :noweb yes
+  <<synth_main>>
+  <<shift_main>>
+  <<change_chord>>
+#+end_src
+
+#+begin_src sclang :results none :noweb yes
+  <<open_meter>>
+#+end_src
+
+#+begin_src sclang :results none :noweb yes
+  <<shift_free>>
+  CmdPeriod.run
+#+end_src
+
+* Synth voice                                                   :B_quotation:
+** Setup channels
+Call this first: Setup synths and encoders
+- The SynthDef outputs a B-format signal on the ~~defaultChOffset~ channels.
+- The dist_expand functions contains the Pbinds
+#+name: synth_main
+#+begin_src sclang :results none :noweb yes
+  // Default settings
+  <<channel_settings>>
+  // Load Synth
+  <<chord_player>>
+  // Load Array
+  <<pitch_arrays>>
+  <<spat_arrays>>
+  <<player_function>>
+  <<multichannel_exp>>
+  <<dist_expand_a>>
+  <<dist_expand_b>>
+  <<change_chord>>
+  //  s.meter;
+  // Load decoder and connect
+  //  <<s_decoder>>
+#+end_src
+
+Free buses
+#+begin_src sclang :results none :noweb yes
+  <<free_busses>>
+#+end_src
+
+Default settings
+#+name: channel_settings
+#+begin_src sclang :results none
+  ~order = 3;
+  ~hoaNumChannels =  ((~order+1).pow(2)).asInteger;
+  ~decoderNumChannels = 31;
+  ~decoderOrder = 1;
+  ~defaultChordSize = 3;
+  // this indicates where the decoder is reading the signal From
+  ~defaultChOffset = 0;
+  // ~audioBusses = Array.new(~defaultChordSize);
+  ~audioInBus = 12;
+  ~fadeTime = 4;
+  ~baseFreq = 174.61;
+  ~baseFifth = ~baseFreq*3/2;
+  ~baseSecond = ~baseFreq*9/8;
+  ~baseSeven = ~baseFreq*7/4;
+  #+end_src
+
+#+begin_src sclang :results none
+  { SinOsc.ar(400, 0, 0.2); }.play;
+  { SyncSaw.ar(400, MouseX.kr(100, 1000), 0.1) }.scope(1, zoom: 4);
+  s.meter;
+#+end_src
+
+Play function
+#+begin_src sclang :results none
+  ~notesArrayFunc.value(0, ~defaultChOffset, ~baseFreq);
+  //s.meter;
+#+end_src
+
+#+begin_src sclang :results none
+  Env.new(levels: [0, 1, 0.9, 0.5, 0], times: [0.3, 0.1, 0.2, 0.4], curve: [-3, 1, 2, -2]).plot;
+#+end_src
+Call this function as to make harmonic multichannel expansion for the [[chord_player][SynthDef]] below. 
+#+name: multichannel_exp
+#+begin_src sclang :results none
+  ~multichannelArray = { |freq=200, amp=1, iter=8, mode=1|
+    var freqArray = Array.new(iter);
+    var ampArray = Array.new(iter);
+    if(mode == 0,
+          {
+            iter = iter*2;	  
+            iter.do({  arg item, int;
+                  if(int % 2 == 0,
+                    { freqArray.add(freq * (int + 1));
+                          ampArray.add(amp / (int + 1)); });	  
+            });
+          },
+          {
+            iter.do({  arg item, int;
+                  freqArray.add(freq * (int + 1));
+                  ampArray.add(amp / (int + 1)); });	  
+          });
+    ~return = [freqArray, ampArray];
+  };
+#+end_src
+
+Test function for the multiChannel expansion function
+#+begin_src sclang :results none
+  ~multichannelArray.value([ 100, 200, 300 ], [ 0.1, 0.1, 0.1 ], 3, 1).postln;
+#+end_src
+
+Test function
+#+begin_src sclang :results none
+ ~distExpandA.value([0, 0], [ 654.80625, 523.845, 436.5375 ], [-1.5707963, -1.5707963, -1.5707963 ], [ 0, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]); 
+#+end_src
+
+The actual Synthdef that makes the sound.
+#+name: chord_player
+#+begin_src sclang
+  ~globSynthVol = Bus.control(s, 1);
+  ~globSynthVol.set(0.05);
+  SynthDef("chordPlayer", { |out, freq, amp, length=20, az=0, el=0, rad=2, spherical=1, combv = 0.1 |
+    var envS = Env.new(levels: [0, 1, 0.9, 0], times: [0.3*length, 0.3*length*0.5, 0.7*length*0.5], curve: [-3, -1, -1]);
+    var envO = Env.new(levels: [0, 1, 0.9, 0.5, 0], times: [0.3*length, 0.1*length, 0.4*length, 0.4*length], curve: [-3, 1, 2, -2]);
+    var sig = Mix.ar(
+          [SyncSaw.ar(freq, ((freq*2) * (rad / 3)), 0.1) * EnvGen.kr(envS),
+            SinOsc.ar(freq, 0.0, amp, 0.0) * EnvGen.kr(envO, doneAction: Done.freeSelf)]
+    );
+    var flt = CombN.ar(sig, 0.01, (az.abs / 3.14 * 0.002), combv);
+    var main = XFade2.ar(flt, sig, (rad/4.5)-1, 1) * 0.2;
+    var volume = In.kr(~globSynthVol);
+    Out.ar(out, HOAEncoder.ar(~order, main * volume, az, el, 0.2, spherical, rad, 1.07));
+  }).add;
+#+end_src
+
+#+begin_src sclang :results none
+  ~globSynthVol.set(0.1);
+#+end_src
+
+#+begin_src sclang :results none
+  { XFade2.ar(Saw.ar, SinOsc.ar, LFTri.kr(0.1) ) }.play
+  { CombN.ar(WhiteNoise.ar(0.01), 0.01, 0.001, 0.2) }.play;
+#+end_src
+
+Modulator (not used)
+#+begin_src sclang :results none
+  SynthDef(\modulator, { |out, start, end, time|
+    var sig = Line.kr(start, end, time, doneAction: Done.freeSelf);
+    Out.kr(out, sig);
+  });
+#+end_src
+
+Definition of the chords and spat and stuff.
+#+name: player_function
+#+begin_src sclang :noweb yes
+  ~notesArrayFunc = { arg ndx, out, base;
+    var chord, outs, size, amps;
+    var gate = 2.rand;
+    <<expand_array>>
+    <<chorder>>
+    <<dist_expand_a>>
+    amps = Array.with(0.1, 0.1, 0.1);
+    // Arrays for notes and spatialization.
+    <<pitch_arrays>>
+    <<spat_arrays>>  
+    chord = ~freqs.value(~notesArrays.rowAt(ndx), base);
+    "Chord array: ".post; chord.postln;
+    "Azimuth array: ".post; ~spatArrays.rowAt(ndx).postln;
+    "Elevation array: ".post; ~elArrays.rowAt(ndx).postln;
+    "Radius array: ".post; ~radArrays.rowAt(ndx).postln;
+    outs = Array.new(3);
+    if(chord.size > ~defaultChordSize,
+          { 
+            size = ~defaultChordSize - 1  ;
+          },
+          {
+            size = chord.size;	  
+          });
+    // Set the output to the offset
+    (0..2).do({ arg item;
+          outs.add(~defaultChOffset);
+    });
+    "Amps array: ".post; amps.postln;
+    "Outputs array: ".post; outs.postln;
+    //       ~expandArray.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps);
+    // ~pbindExpand.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps);
+    if(gate == 0,
+          {
+            "Playing Pbind A".postln;	  
+            ~distExpandA.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, rrand(3,6));
+          },
+          {
+            "Playing Pbind B".postln;	  	  
+            ~distExpandB.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, rrand(3,6));
+          }
+    );
+  };
+  //~notesArrayFunc.value(1, 0, 400);
+#+end_src
+
+Test function
+#+begin_src sclang :results none
+  ~distExpandB.value([0, 0], [ 654.80625, 523.845, 436.5375 ], [-1.5707963, -1.5707963, -1.5707963 ], [ 0, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+  ~notesArrayFunc.value(1, ~defaultChOffset, 349.23);
+
+  ~freqs.value([5/4, 3/2, 15/8], ~baseFreq);
+  
+#+end_src
+
+Create the pitch array for the chord.
+#+name: chorder
+#+begin_src sclang
+  ~freqs = { arg pitches, base;
+    var new_array = Array.new(pitches.size);
+    pitches.do({ arg item, i;
+          new_array.add((item*base));
+    });
+    new_array;
+  };
+  //  ~freqs.value([2/1, 3/2], 100).postln;
+#+end_src
+
+Expansion function, sending the notes to the [[chord_player][SynthDef]]
+#+name: expand_array
+#+begin_src sclang
+  ~expandArray = { |out, chord, spat, el, rad, amp|
+    "called expandArray".postln;
+    fork {
+          [\out, out, \freq, chord, \az, spat, \el, el, \rad, rad, \amp, amp].flop.do { |args|
+            var mArray = ~multichannelArray.value(args[3], args[11], 16);
+            // put it in the third argument, 'chord'	  
+            args.put(3, mArray[0]);
+            // put it in the 11th argument, 'amp'	  
+            args.put(11, mArray[1]);
+            args.postln;	  
+            Synth("chordPlayer", args);
+          }
+    };
+  };
+  // ~expandArray.value([0,1, 0, 1], [220,440, 540, 640]);
+#+end_src
+
+Expansion function with separate events sending the notes to the [[chord_player][SynthDef]]
++name: pbind_expand
+#+begin_src sclang
+  ~pbindExpand = { |out, chord, spat, el, rad, amp|
+    "called pbindExpand".postln;
+    fork {
+          10.do{ arg freq, int;
+            var ndx = 3.rand;
+            //    \out, out, \freq, chord, \az, spat, \el, el, \rad, rad, \amp, amp
+            Synth("chordPlayer", [\out, out, \length, 5, \freq, chord[ndx], \az, spat[ndx], \el, el[ndx], \rad, rad[ndx], \amp, amp[ndx]]);
+            (rad[ndx] * 0.3).wait;   
+          }   
+    }
+  };
+#+end_src
+
+Expansion function using two Pbinds that sequence through the notes, making events send the notes to the [[chord_player][SynthDef]]
+#+name: dist_expand_a
+#+begin_src sclang
+  ~distExpandA = { |out, chord, spat, el, rad, amp, reps|
+    var pbA, pbB, timeA = 0.009, timeB = 0.01, len = 3, mChordExp, mChord, mAmp;
+    mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+    mChord = mChordExp[0];
+    mAmp = mChordExp[1];
+    "called distExpand".postln;
+    fork {
+          pbA = Pbind(\instrument, "chordPlayer",
+            \out, Pseq(out, reps),
+            \freq, Pseq(mChord, reps) * Prand([1,2], reps),
+            \az, Pseq(spat, reps),
+            \el, Pseq(el, reps),
+            \rad, Pseq(rad, reps),
+            \amp, Pseq(mAmp, reps),
+            \length, Pseq([len, len], reps) * Prand([(1..4)], reps),
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),
+            \dur, Prand(chord, reps) * timeA,
+            \delta, 2;	  
+          ).play;
+          4.wait;
+          pbB = Pbind(\instrument, "chordPlayer",
+            \out, Pseq(out, reps),
+            \freq, Pseq(mChord, reps) * Prand([1,2], reps),
+            \az, Pseq(spat, reps),
+            \el, Pseq(el, reps),
+            \rad, Pseq(rad, reps),
+            \amp, Pseq(mAmp, reps),
+            \length, Pseq([len, len], inf) * Prand([(1..4)], reps),
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),   
+            \dur, Prand(chord, reps) * timeB,
+            \delta, 2;	  
+          ).play;
+    };
+  };
+  ~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+#+end_src
+
+Expansion function with one Pbind for each note of the chord, sllightly offset in time. Events are sent to the [[chord_player][SynthDef]].
+
+Altering between dist_expand_a and this could be a nice way of getting enough variation. The time between the Pbinds and the lenght of the notes needs to be checked here.
+#+name: dist_expand_b
+#+begin_src sclang
+  ~distExpandB = { |out, chord, spat, el, rad, amp, rep|
+    var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
+    mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+    mChord = mChordExp[0];
+    mAmp = mChordExp[1];
+    "called distExpand".postln;
+    fork {
+          pbA = Pbind(\instrument, "chordPlayer",
+            \out, out[0],
+            \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
+            \az, spat[0],
+            \el, el[0],
+            \rad, rad[0],
+            \amp, amp[0],
+            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),   
+            \dur, chord[0] * timeA,
+            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);	  
+          ).play;
+          3.wait;
+          pbB = Pbind(\instrument, "chordPlayer",
+            \out, out[1],
+            \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
+            \az, spat[1],
+            \el, el[1],
+            \rad, rad[1],
+            \amp, amp[1],
+            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
+            \dur, chord[1] * timeA,
+            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+          ).play;
+          6.wait;
+          pbC = Pbind(\instrument, "chordPlayer",
+            \out, out[2],
+            \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
+            \az, spat[2],
+            \el, el[2],
+            \rad, rad[2],
+            \amp, amp[2],
+            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
+            \dur, chord[2] * timeA,
+            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+          ).play;
+          eventLength.wait;
+          pbA.stop;
+          pbB.stop;
+          pbC.stop;
+    };
+  };
+  ~distExpandB.value([ 0, 0, 0 ], [ 654.80625, 523.845, 436.5375 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+#+end_src
+
+** Ambisonics
+*** Monitor encoded signal
+Execute to monitor the B-format signal starting with bus 0.
+#+begin_src sclang :results none
+  ~encoders.play(0, ~hoaNumChannels, vol: 0.5, fadeTime:1.0);
+  ~encoders.scope;
+#+end_src
+
+*** Decoder
+Use this for the time being
+#+name: s_decoder
+#+begin_src sclang :results none :noweb yes
+  ~decoder = NodeProxy.new(s, \audio, ~decoderNumChannels);
+  // In this case the KMH108AE1h1p is used, taking four inputs from the encoded signal.
+  ~decoder.source = {
+    KMHLSDome1h1pNormal6.ar(In.ar(~defaultChOffset),
+          In.ar(~defaultChOffset+1),
+          In.ar(~defaultChOffset+2),
+          In.ar(~defaultChOffset+3), gain:0)
+  };
+  ~decoder.fadeTime = 1;
+  ~decoder.play;
+#+end_src
+
+Connect encoder to decoder.
+#+name: connect
+#+begin_src sclang :results none
+  (
+  //s.scope(29);
+  // s.meter;     
+  ~encoders <>> ~decoder;
+  );
+#+end_src
+
+*** 8ch decoder
+#+name: decoder_matrix
+#+begin_src sclang :results none :noweb yes
+  ~directions = [0.3926991, -0.3926991, 1.178097, -1.178097, 1.9634954, -1.9634954, 1.9634954, -1.9634954];
+  ~decoder = HoaMatrixDecoder.newDirection(~directions, order: 1);
+#+end_src
+
+    
+#+begin_src sclang :results none
+  QuarksGui.new;
+#+end_src
+
+*** Binaural decoder (HOA)
+#+begin_src sclang :results none
+  AtkHoa.defaultOrder.postln;
+#+end_src
+
+#+begin_src sclang :results none
+  ~hoaNumChannels = 4;
+  ~scHoaRefRadius = 3.25;  // radius of HRIR measurement array
+
+  ~decoder = NodeProxy.new(s, \audio, 2, ~hoaNumChannels);
+  ~decoder.source = {
+    var in; in = \in.ar(0!~hoaNumChannels);
+    //    in.add(0);
+    HOABinaural.ar(  // decode to binaural
+          AtkHoa.defaultOrder,
+          HoaNFCtrl.ar(  // exchange (reference radius)
+            in,
+            AtkHoa.refRadius,
+            ~scHoaRefRadius
+          )
+    );
+  };
+#+end_src
+
+*** Binaural decoder (FOA)
+#+begin_src sclang :results none
+  ~hoaNumChannels = 4;
+  ~scHoaRefRadius = 3.25;  // radius of HRIR measurement array
+  ~decoder = FoaDecoderKernel.newSpherical; // kernel decoders should be freed after use!!
+  // ~decoder.numChannels
+  // ~decoder.dirChannels.raddeg
+  "Ambisonic decoding via % decoder".format(~decoder.kind).postln;
+  "Ambisonic decoding number of channels: %".format(~decoder.numChannels).postln;
+  "Ambisonic decoding via % decoder".format(~decoder.numChannels.raddeg).postln;
+
+  ~decoder = NodeProxy.new(s, \audio, 2, ~hoaNumChannels);
+  ~decoder.source = {
+    var in; in = \in.ar(0!~hoaNumChannels);
+    //    in.add(0);
+    FoaDecode.ar(in, ~decoder);
+  };
+#+end_src
+
+#+begin_src sclang :results none
+  ~decoder.free
+#+end_src
+
+* PitchShifter PA
+** main stuff
+Main routine ambisonics
+#+name: shift_main
+#+begin_src sclang :results none :noweb yes
+  fork {
+    //    <<shift_channel_settings>>
+    <<channel_settings>>
+    <<shift_encoder>>
+    <<shift_routine>>
+    //    <<shift_setup_decoder3>>
+    //    <<shift_pan2>>
+    0.5.wait;
+    //    <<shift_connect_panner>>
+    <<shift_connect_encoder>>
+    <<shift_connect_decoder>>
+    //    <<shift_notes_arrays>>
+    <<shift_chord_func>>
+    <<shift_change_source>>
+    <<pitch_arrays>>
+    <<spat_arrays>>
+    <<shift_vol>>
+    <<shift_input_vol>>
+  };
+#+end_src
+
+#+begin_src sclang :results none
+  ~shiftVol.value(0);
+#+end_src
+Main routine stereo pan
+#+name: shift_run_stereo
+#+begin_src sclang :results none :noweb yes
+  fork {
+    <<shift_channel_settings>>
+    <<shift_routine>>
+    <<shift_pan2>>
+    0.5.wait;
+    <<shift_connect_panner>>
+    //    <<shift_notes_arrays>>
+    //    <<shift_chord_func>>
+  };
+#+end_src
+
+#+begin_src sclang :results none :noweb yes
+  <<shift_free>>
+#+end_src
+
+Plot
+#+name: open_meter
+#+begin_src sclang :results none
+  s.plotTree;
+  s.meter;
+//  ~shifters[0].gui;
+#+end_src
+
+Ndef version for PitchShift
+#+name: shift_routine
+#+begin_src sclang :results none
+  ~maxNotes = 3;
+  ~shifters = Array.new(~maxNotes);
+  ~panners = Array.new(~maxNotes);
+  ~globPAVol = Bus.control(s, 1);
+  ~globPAVol.set(1.0);
+
+  // Add nodeproxys to the shifter and pan arrays
+  ~maxNotes.do({ arg item, int;
+    ~shifters.add(NodeProxy.new(s, \audio, 1, 1));
+    ~panners.add(NodeProxy.new(s, \audio, 2, 1));
+  });
+
+  // Create the PitchShifter synths                                                                               
+  ~shifters.do({ arg obj, int;
+    obj.fadeTime = ~fadeTime;
+    obj.source = {
+          var freq, hasFreq;
+          #freq, hasFreq = Pitch.kr(
+            SoundIn.ar(\micIn.kr(~audioInBus), 1);	  
+          );
+          //          freq.poll;
+          PitchShiftPA.ar(
+            SoundIn.ar(\micIn.kr(~audioInBus), 1) * \shiftInputVol.kr(1),	  
+            freq, \pitchRatio.kr(1.1),
+            \formantRatio.kr(1), \minFreq.kr(10),
+            \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(1.5);
+    };
+  });
+#+end_src
+
+#+begin_src sclang :results none
+  ~shifters[0].gui;
+  s.meter;
+#+end_src
+** panning
+*** stereo
+Ndef version for Pan (may be substituted for other panning methods)
+#+name: shift_pan2
+#+begin_src sclang :results none
+  // Create the panner synths and connect them to the shifters.
+  ~panners.do({ arg obj, int;
+    obj.source = {
+          Pan2.ar(\in.ar, \panPos.kr(0), \amp.kr(1));
+    };
+  });
+#+end_src
+
+Connect shifters to panners.
+#+name: shift_connect_panner
+#+begin_src sclang :results none
+  ~panners.do({ arg obj, int;
+    obj.play;
+    "Connecting shifter ".post; int.post; " to panner ".post; int.postln;
+    ~shifters[int] <>> obj;
+  });
+#+end_src
+
+*** ambisonics
+Run to start main routine
+#+begin_src sclang :results none :noweb yes
+  <<shift_run>>
+#+end_src
+
+Ambisonics encoder for panning the signal.
+#+name: shift_encoder
+#+begin_src sclang :results none
+  ~encoders = Array.new(~maxNotes);
+  ~maxNotes.do({ arg item, int;
+    ~encoders.add(NodeProxy.new(s, \audio, ~hoaNumChannels, 1));
+  });
+
+  ~encoders.do({ arg obj, int;
+    obj.fadeTime = ~fadeTime;
+    obj.source = {
+          HOAEncoder.ar(~order, \in.ar(0), \az.kr(1.7), \el.kr(0), 0.5, \spherical.ir(1), \rad.kr(1), 1.07);
+    };
+  });
+
+  ~encoderSum = NodeProxy.new(s, \audio, ~hoaNumChannels, ~hoaNumChannels);
+  ~encoders.do({ arg obj, int;
+    ~encoderSum.add(~encoders[int], 0);
+  });
+#+end_src
+
+#+name: shift_connect_encoder
+#+begin_src sclang :results none
+  ~encoders.do({ arg obj, int;
+    ~shifters[int] <>> obj;
+  });
+#+end_src
+
+#+begin_src sclang :results none
+  //s.meter;
+  s.plotTree
+  ~encoderSum.controlKeys.postln;
+  ~encoderSum.gui;
+#+end_src
+#+name: test_encoders_pan
+#+begin_src sclang :results none
+  ~panEven = { arg pos;
+    var div = (pi*2)/3;
+    div.postln;
+    ~encoders.do({ arg obj, int;
+          var divpos = pos+(div*int);
+          obj.set(\az, divpos);
+      divpos.postln;
+    });
+  };
+#+end_src
+
+#+name: test_encoders
+#+begin_src sclang :results none
+  ~encoders.do({ arg obj, int;
+    var ran = pi.rand;
+    obj.set(\az, ran);
+    ran.postln;
+  });
+#+end_src
+
+Utility check
+#+begin_src sclang :results none
+  ~encoders[0].gui;
+  ~shifters[3].gui;
+  ~encoderSum.gui;
+  ~order.postln;
+#+end_src
+
+#+name: shift_setup_decoder3
+#+begin_src sclang :results none
+  ~decoder = NodeProxy.new(s, \audio, ~decoderNumChannels);
+  switch (~order,
+    1, {
+          ~decoder.source = {
+            var in; in = \in.ar(0!~hoaNumChannels);
+            in.add(6);
+            KMHLSDome1h1pNormal6.ar(*in)
+          };
+    },
+    3, {
+          ~decoder.source = {
+            var in; in = \in.ar(0!~hoaNumChannels);
+            in.add(6);
+            KMHLSDome3h3pNormal6.ar(*in)
+          };
+    };
+    //   "Order not implemented".postln;
+  ).postln;
+  ~decoder.fadeTime = 1;
+#+end_src
+
+#+name: shift_connect_decoder
+#+begin_src sclang :results none
+  //  ~encoderSum <>> ~decoder;
+  //  ~decoder.play;
+  ~encoderSum.play;
+#+end_src
+
+#+begin_src sclang :results none
+  ~decoder.gui;
+  #+end_src
+** settings
+#shift_channel_settings
+#+begin_src sclang :results none
+  ~order = 1;
+  ~hoaNumChannels = ((~order+1).pow(2)).asInteger;
+  ~decoderNumChannels = 29;
+  ~decoderOrder = 1;
+  ~defaultChordSize = 3;
+  // this indicates where the decoder is reading the signal From
+  ~defaultChOffset = 0;
+  ~audioInBus = 8;
+#+end_src
+
+No support here for stereopanning for the moment
+#+name: shift_chord_func
+#+begin_src sclang :results none :noweb yes
+  <<shift_change_source>>
+  ~changeChord = { arg index;
+    var harm = ~notesArrays.rowAt(index);
+    var spat = ~spatArrays.rowAt(index);
+    var el = ~elArrays.rowAt(index);
+    var rad = ~radArrays.rowAt(index);
+    "Current chord array is: ".postln;
+    " ->  ".post; ~notesArrays.rowAt(index).postln;
+    "Current spat is: ".postln;
+    "->  ".post; ~spatArrays.rowAt(index).postln;
+    "Current elevation is: ".postln;
+    "->  ".post; ~elArrays.rowAt(index).postln;
+    "Current radius is: ".postln;
+    "->  ".post; ~radArrays.rowAt(index).postln;
+
+    ~shiftersNewChord.value(harm, spat, el, rad);	
+  };
+#+end_src
+
+#+name: shift_change_source
+#+begin_src sclang :results none
+  ~shiftersNewChord = { arg ratio, az, el, rad;
+    ~shifters.do({ arg obj, int;
+      obj.fadeTime = ~fadeTime;
+      obj.source = {
+            var freq, hasFreq;
+            #freq, hasFreq = Pitch.kr(
+                  SoundIn.ar(\micIn.kr(~audioInBus), 1);
+            );
+            PitchShiftPA.ar(
+                  SoundIn.ar(\micIn.kr(~audioInBus), 1)  * \shiftInputVol.kr(1),
+                  freq, \pitchRatio.kr(ratio[int]),
+                  \formantRatio.kr(1), \minFreq.kr(10),
+                  \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(1.5);
+      };
+          ~encoders[int].source = {
+            HOAEncoder.ar(~order, \in.ar(0), \az.kr(az[int]), \el.kr(el[int]), 0.5, \spherical.ir(1), \rad.kr(rad[int]), 1.07);
+          };
+    });
+  };
+#+end_src
+
+** free
+Free synths
+#+name: shift_free
+#+begin_src sclang :results none
+  // Create the PitchShifter synths                                                                               
+  "Freeing shifters and panners".postln;
+  ~shifters.do({ arg obj, int;
+    ~shifters[int].free;
+    ~panners[int].free;
+    ~encoders[int].free;
+  });
+  // free kernel
+  ~decoder.free;
+  ~globPAVol.free;
+#+end_src
+
+** test
+#+begin_src sclang :results none
+  {Out.ar(1, SinOsc.ar(440, 0, 0.1))}.play;
+#+end_src
+
+See the gui of the first shiter and the first panner.
+#+begin_src sclang :results none
+  ~shifters[0].gui;
+  ~panners[0].gui;
+#+end_src
+
+** play
+
+#+begin_src sclang :results none
+  ~panEven.value(10);
+#+end_src
+
+Choose chord
+#+begin_src sclang :results none
+  ~changeChord.value(0);
+  ~changeChord.value(1);
+  ~changeChord.value(2);
+  ~changeChord.value(3);
+  ~changeChord.value(4);
+  ~changeChord.value(5);
+  ~changeChord.value(6);
+  ~changeChord.value(7);
+  ~changeChord.value(8);
+  ~changeChord.value(9);
+  ~changeChord.value(10);
+  ~changeChord.value(11);
+  ~changeChord.value(12);
+  ~changeChord.value(13);
+  ~changeChord.value(14);
+  ~changeChord.value(15);
+  ~changeChord.value(16);
+  ~changeChord.value(17);
+  ~changeChord.value(18);
+  ~changeChord.value(19);
+  ~changeChord.value(20);
+
+  ~panEven.value(1.7);
+  ~shifters[0].gui;
+  ~shifters[1].gui;
+  ~shifters[2].gui;
+#+end_src
+
+#+name: shift_input_vol
+#+begin_src sclang :results none
+  ~shiftInputVol = { arg vol;
+    ~shifters.do({arg obj, int;
+          ~shifters[int].set(\shiftInputVol, vol);
+    });
+  };
+#+end_src
+
+#+name: shift_vol
+#+begin_src sclang :results none
+  ~shiftVol = { arg vol;
+    ~shifters.do({arg obj, int;
+          ~shifters[int].set(\shiftVol, vol);
+    });
+  };
+#+end_src
