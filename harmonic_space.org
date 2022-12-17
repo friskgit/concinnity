@@ -376,6 +376,7 @@ Set JackRouter to be the interface on Linux
 #+end_src
 
 Alternative for higher orders
+#+name: server_param
 #+begin_src sclang :results none
   (
   o = Server.local.options; // Get the local server's options
@@ -388,11 +389,11 @@ Alternative for higher orders
   o.sampleRate = 48000;
   s.boot;
   )
-#+end_src
+#+End_src
 
 * GUI
 :PROPERTIES:
-:tangle:   ./hamronic_space_gui.scd
+:tangle:   ./harmonic_space_gui.scd
 :END:
 
 #+begin_src sclang :results none :tangle no
@@ -414,12 +415,13 @@ Alternative for higher orders
 #+begin_src sclang :results none
   s.plotTree;
 #+end_src
+
 #+name: main_gui
 #+begin_src sclang :tangle harmonic_space_gui.scd
   (
   var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters;
   wind = Window.new.front;
-  mapA = ControlSpec(0, 4, \linear, 0.01); // min, max, mapping, step
+  mapA = ControlSpec(0, 2, \linear, 0.01); // min, max, mapping, step
   mapB = ControlSpec(0, 1, \linear, 0.01); // min, max, mapping, step
 
   // Sax volume                                                                               
@@ -430,7 +432,7 @@ Alternative for higher orders
   .value_(0.0)
   .action_({
     text.string_(mapA.map(sax.value).asString);
-    ~shiftVol.value(sax.value);  
+    ~shiftVol.value(mapA.map(sax.value));  
   });
   sax.action.value;
 
@@ -535,7 +537,7 @@ Alternative for higher orders
 
   myClock = {
     var countSec = 0, countMin = 0, secString, res;
-    AppClock.sched(0.0,{ arg tme;
+    AppClock.sched(0.0, { arg tme;
           countSec = (countSec+1)%60;
           if(countSec == 0,
             { countMin = countMin+1 });
@@ -564,22 +566,23 @@ Alternative for higher orders
   c = { SinOsc.ar(419, 0, 0.1)}.play
   a.stop;
 #+end_src
+
 * Main
 #+name: change_chord
 #+begin_src sclang :results none
   ~change = { arg index = 0;
-    var root;
-    ~changeChord.value(index);
-    switch(index,
-          13, {root = ~baseFifth},
-          14, {root = ~baseSecond},
-          15, {root = ~baseSeven},
-          17, {root = ~baseFifth},
-          18, {root = ~baseSecond},
-          19, {root = ~baseSeven},
-          root = ~baseFreq
-    );
-    ~notesArrayFunc.value(index, ~defaultChOffset, root);
+	  var root;
+	  ~changeChord.value(index);
+	  switch(index,
+	  13, {root = ~baseFifth},
+	  14, {root = ~baseSecond},
+	  15, {root = ~baseSeven},
+	  17, {root = ~baseFifth},
+	  18, {root = ~baseSecond},
+	  19, {root = ~baseSeven},
+	  root = ~baseFreq
+	  );
+	  ~notesArrayFunc.value(index, ~defaultChOffset, root);
   };
   //~change.value(19);
   //     s.meter;
@@ -587,10 +590,13 @@ Alternative for higher orders
   // 3 -> 4 ->  0 -> 4 | 8
 #+end_src
 
-#+begin_src sclang :results none :noweb yes :tangle link harmonic_space_main.scd
+#+begin_src sclang :results none :noweb yes :tangle harmonic_space_main.scd
+  <<server_param>>
+  (
   <<synth_main>>
   <<shift_main>>
   <<change_chord>>
+  )
 #+end_src
 
 #+begin_src sclang :results none :noweb yes
@@ -648,6 +654,8 @@ Default settings
   ~baseFifth = ~baseFreq*3/2;
   ~baseSecond = ~baseFreq*9/8;
   ~baseSeven = ~baseFreq*7/4;
+  ~inFormat = \ACN_N3D;
+  ~outFormat = \ACN_SN3D;
   #+end_src
 
 #+begin_src sclang :results none
@@ -743,7 +751,6 @@ Definition of the chords and spat and stuff.
     var gate = 2.rand;
     <<expand_array>>
     <<chorder>>
-    <<dist_expand_a>>
     amps = Array.with(0.1, 0.1, 0.1);
     // Arrays for notes and spatialization.
     chord = ~freqs.value(~notesArrays.rowAt(ndx), base);
@@ -876,64 +883,64 @@ Expansion function using two Pbinds that sequence through the notes, making even
           ).play;
     };
   };
-  ~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+  //~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
 #+end_src
 
-Expansion function with one Pbind for each note of the chord, sllightly offset in time. Events are sent to the [[chord_player][SynthDef]].
+  Expansion function with one Pbind for each note of the chord, sllightly offset in time. Events are sent to the [[chord_player][SynthDef]].
 
-Altering between dist_expand_a and this could be a nice way of getting enough variation. The time between the Pbinds and the lenght of the notes needs to be checked here.
-#+name: dist_expand_b
-#+begin_src sclang
+  Altering between dist_expand_a and this could be a nice way of getting enough variation. The time between the Pbinds and the lenght of the notes needs to be checked here.
+  ,#+name: dist_expand_b
+  ,#+begin_src sclang
   ~distExpandB = { |out, chord, spat, el, rad, amp, rep|
-    var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
-    mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
-    mChord = mChordExp[0];
-    mAmp = mChordExp[1];
-    "called distExpand".postln;
-    fork {
-          pbA = Pbind(\instrument, "chordPlayer",
-            \out, out[0],
-            \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
-            \az, spat[0],
-            \el, el[0],
-            \rad, rad[0],
-            \amp, amp[0],
-            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),   
-            \dur, chord[0] * timeA,
-            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);	  
-          ).play;
-          3.wait;
-          pbB = Pbind(\instrument, "chordPlayer",
-            \out, out[1],
-            \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
-            \az, spat[1],
-            \el, el[1],
-            \rad, rad[1],
-            \amp, amp[1],
-            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
-            \dur, chord[1] * timeA,
-            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
-          ).play;
-          6.wait;
-          pbC = Pbind(\instrument, "chordPlayer",
-            \out, out[2],
-            \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
-            \az, spat[2],
-            \el, el[2],
-            \rad, rad[2],
-            \amp, amp[2],
-            \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
-            \dur, chord[2] * timeA,
-            \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
-          ).play;
-          eventLength.wait;
-          pbA.stop;
-          pbB.stop;
-          pbC.stop;
-    };
+      var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
+      mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+      mChord = mChordExp[0];
+      mAmp = mChordExp[1];
+      "called distExpand".postln;
+      fork {
+		  pbA = Pbind(\instrument, "chordPlayer",
+			  \out, out[0],
+			  \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
+			  \az, spat[0],
+			  \el, el[0],
+			  \rad, rad[0],
+			  \amp, amp[0],
+			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),   
+			  \dur, chord[0] * timeA,
+			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);	  
+		  ).play;
+		  3.wait;
+		  pbB = Pbind(\instrument, "chordPlayer",
+			  \out, out[1],
+			  \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
+			  \az, spat[1],
+			  \el, el[1],
+			  \rad, rad[1],
+			  \amp, amp[1],
+			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
+			  \dur, chord[1] * timeA,
+			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+		  ).play;
+		  6.wait;
+		  pbC = Pbind(\instrument, "chordPlayer",
+			  \out, out[2],
+			  \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
+			  \az, spat[2],
+			  \el, el[2],
+			  \rad, rad[2],
+			  \amp, amp[2],
+			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
+			  \dur, chord[2] * timeA,
+			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+		  ).play;
+		  eventLength.wait;
+		  pbA.stop;
+		  pbB.stop;
+		  pbC.stop;
+      };
   };
   ~distExpandB.value([ 0, 0, 0 ], [ 654.80625, 523.845, 436.5375 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
 #+end_src
@@ -1038,7 +1045,6 @@ Main routine ambisonics
 #+begin_src sclang :results none :noweb yes
   fork {
     //    <<shift_channel_settings>>
-    <<channel_settings>>
     <<shift_encoder>>
     <<shift_routine>>
     //    <<shift_setup_decoder3>>
@@ -1186,6 +1192,7 @@ Ambisonics encoder for panning the signal.
   ~encoderSum.controlKeys.postln;
   ~encoderSum.gui;
 #+end_src
+
 #+name: test_encoders_pan
 #+begin_src sclang :results none
   ~panEven = { arg pos;
@@ -1265,7 +1272,6 @@ Utility check
 No support here for stereopanning for the moment
 #+name: shift_chord_func
 #+begin_src sclang :results none :noweb yes
-  <<shift_change_source>>
   ~changeChord = { arg index;
     var harm = ~notesArrays.rowAt(index);
     var spat = ~spatArrays.rowAt(index);
