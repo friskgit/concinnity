@@ -337,7 +337,7 @@ Script to create the MatrixArray for supercollider from the [[pitches][pitch lis
 #+begin_SRC sclang :tangle sclang_output.sc
 ~spatArrays = MatrixArray.with([[0.78539816, 1.5707963, 0.0], [3.1415927, 1.5707963, 2.3561945], [-2.3561945, 3.1415927, -1.5707963], [0.0, -0.78539816, -1.5707963], [0.78539816, 2.3561945, -0.78539816], [0.78539816, 2.3561945, -2.3561945], [0.78539816, 0.39269908, 1.5707963], [-0.52359878, -0.78539816, -1.5707963], [-1.727876, -1.5707963, -1.5707963], [-2.7488936, 2.7488936, -1.5707963], [-1.5707963, -0.78539816, -1.5707963], [-0.78539816, -0.52359878, -0.78539816], [0.78539816, 1.5707963, 0.0], [0.0, 0.0, -0.78539816], [-0.78539816, -0.78539816, -1.5707963], [-2.5132741, 0.39269908, 2.3561945], [0.0, -0.78539816, -1.5707963], [-0.78539816, 1.5707963, 0.78539816], [1.5707963, 1.5707963, 2.3561945], [-2.5132741, 1.727876, -0.78539816]]);
 ~elArrays = MatrixArray.with([[0.62831853, 0, 0], [0, 0, 0.62831853], [0.62831853, 0, 0], [0, 0.78539816, 0], [0.4712389, 0.4712389, 0.4712389], [0.4712389, 0.4712389, 0.4712389], [0.62831853, 0.62831853, 0], [0.9424778, 0.78539816, 0], [0.78539816, 0.62831853, 0], [0.62831853, 0.62831853, 0], [0.9424778, 0.9424778, 0.62831853], [0.9424778, 0.9424778, 0.78539816], [0.62831853, 0, 0], [0, 0, 0.78539816], [0.9424778, 0.78539816, 0], [0.9424778, 0.62831853, 0.4712389], [0, 0.78539816, 0], [0.78539816, 0.62831853, 0.4712389], [0.62831853, 0, 0.62831853], [0.9424778, 0.78539816, 0.78539816]]);
-~radArrays = MatrixArray.with([[6, 3, 3], [3, 3, 6], [6, 3, 3], [3, 6, 3], [3, 3, 3], [3, 3, 3], [6, 3, 3], [6, 6, 3], [6, 6, 3], [3, 3, 3], [9, 9, 6], [9, 6, 6], [6, 3, 3], [3, 0, 6], [9, 6, 3], [9, 3, 3], [3, 6, 3], [6, 6, 3], [6, 3, 6], [9, 6, 6]]);
+~radArrays = MatrixArray.with([[6, 3, 3], [3, 3, 6], [6, 3, 3], [3, 6, 3], [3, 3, 3], [3, 3, 3], [6, 3, 3], [6, 6, 3], [6, 6, 3], [3, 3, 3], [9, 9, 6], [9, 6, 6], [6, 3, 3], [3, 3, 6], [9, 6, 3], [9, 3, 3], [3, 6, 3], [6, 6, 3], [6, 3, 6], [9, 6, 6]]);
 #+end_SRC
 
 * Info
@@ -419,8 +419,8 @@ Alternative for higher orders
 #+name: main_gui
 #+begin_src sclang :tangle harmonic_space_gui.scd
   (
-  var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters;
-  wind = Window.new.front;
+  var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters, seqTask, offset = 0;
+  wind = Window.new("Main", Rect(128, 64, 620, 400)).front;
   mapA = ControlSpec(0, 2, \linear, 0.01); // min, max, mapping, step
   mapB = ControlSpec(0, 1, \linear, 0.01); // min, max, mapping, step
 
@@ -470,7 +470,7 @@ Alternative for higher orders
     ["0"], ["1"], ["2"],["3"], ["4"],["5"], ["6"],["7"], ["8"],["9"], ["10"],["11"], ["12"],["B1"], ["B2"],["B3"], ["B4"],["C1"], ["C2"],["C3"], ["C4"], ["End"];
   ])
   .action_({ arg butt;
-  "Current event is: ".post;
+    "Current event is: ".post;
     (butt.value - 1).postln;
     ~change.value(butt.value-1);
   });
@@ -480,14 +480,16 @@ Alternative for higher orders
   number.font  = Font("Helvetica", 26, bold: true);
   number.string = 1;
   number.action = {arg num;
-    step.value = num.value-1;
+    //    step.value = num.value-1;
+    number.value = number.value-1;
   };
 
   // Goto
   plus = Button(wind, Rect(240, 230, 45, 60))
   .string_("+")
   .action_({ arg butt;
-    step.value = step.value+1;
+    //    step.value = step.value+1;
+    number.value = number.value+1;
   });
   plus.font = Font("Helvetica", 32, bold: true);
 
@@ -498,6 +500,11 @@ Alternative for higher orders
   });
   minus.font = Font("Helvetica", 32, bold: true);
 
+  meters = Button(wind, Rect(420, 300, 160, 45))
+  .string_("Meter")
+  .action_({s.meter;});
+  meters.font = Font("Helvetica", 24, bold: true);
+  //myClock.value.postln;
 
   time = StaticText(wind, Rect(420, 30, 200, 100)); //.align_(\center);
   time.font = Font("Helvetica", 64, bold: true);
@@ -509,10 +516,12 @@ Alternative for higher orders
     if(start.string == "Start",
           { myClock.value();
             start.string_("Stop");
+            seqTask = ~runSequencer.value(number.value.asInteger);	  
           },
           {
             AppClock.clear;
-            start.string_("Start");	  
+            start.string_("Start");
+            seqTask.stop;	  
           });
   });
   start.font = Font("Helvetica", 24, bold: true);
@@ -552,11 +561,37 @@ Alternative for higher orders
     });
   };
 
-  meters = Button(wind, Rect(420, 300, 160, 45))
-  .string_("Meter")
-  .action_({s.meter;});
-  meters.font = Font("Helvetica", 24, bold: true);
-  //myClock.value.postln;
+  ~runSequencer = { arg offset = 0;
+    var seqTask, items;
+    items = ~sections.size - offset;
+
+    seqTask = Task({
+          items.do({ arg time, index;
+            var ndx, section_length;
+            AppClock.clear;
+            myClock.value();
+            // make sure ndx is in range of ~sections (time)
+            if((index + offset) < ~sections.size,
+                  { ndx = index + offset; },
+                  { ndx = ~sections.size - 1; });
+            section_length = ~sections[ndx];
+            "*** Section ".post; ndx.post; " ***".postln;
+            if(ndx != 0,
+                  { "Turn on sax".postln;
+                    ~shiftInputVol.value(0.6);
+                    ~globalRep = ~pBindReps[ndx];
+                    ~change.value(~sectionOrder[ndx]);
+                    //~change.value(ndx-1);
+                  },
+                  { "Turn off sax".postln;
+                    ~shiftInputVol.value(0); });
+            "  --- waiting for ".post; section_length.post; " seconds".postln;
+            section_length.wait;
+          });
+          "Sequence end".postln;
+    }).play;
+    seqTask;
+  };
   )
 #+end_src
 
@@ -571,18 +606,19 @@ Alternative for higher orders
 #+name: change_chord
 #+begin_src sclang :results none
   ~change = { arg index = 0;
-	  var root;
-	  ~changeChord.value(index);
-	  switch(index,
-	  13, {root = ~baseFifth},
-	  14, {root = ~baseSecond},
-	  15, {root = ~baseSeven},
-	  17, {root = ~baseFifth},
-	  18, {root = ~baseSecond},
-	  19, {root = ~baseSeven},
-	  root = ~baseFreq
-	  );
-	  ~notesArrayFunc.value(index, ~defaultChOffset, root);
+    var root;
+    "*** Current section played is ".post; index.postln;
+    ~changeChord.value(index);
+    switch(index,
+          13, {root = ~baseFifth},
+          14, {root = ~baseSecond},
+          15, {root = ~baseSeven},
+          17, {root = ~baseFifth},
+          18, {root = ~baseSecond},
+          19, {root = ~baseSeven},
+          root = ~baseFreq
+    );
+    ~notesArrayFunc.value(index, ~defaultChOffset, root);
   };
   //~change.value(19);
   //     s.meter;
@@ -656,6 +692,22 @@ Default settings
   ~baseSeven = ~baseFreq*7/4;
   ~inFormat = \ACN_N3D;
   ~outFormat = \ACN_SN3D;
+  ~globalRep = 3;
+  ~sectionOrder = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 13, 15, 16, 18, 17, 19];
+  ~sections = [50,
+    20, 30, 20, 30,
+    20, 30, 20, 50,
+    20, 10, 30, 20,
+    10, 5, 5, 15,
+    5, 5, 5, 50];
+  ~pBindReps = [0,
+    4, 3, 4, 6,
+    4, 3, 4, 4,
+    4, 3, 4, 6,
+    1, 1, 1, 2,
+    1, 1, 2, 2,
+    0, 0];
+
   #+end_src
 
 #+begin_src sclang :results none
@@ -751,6 +803,7 @@ Definition of the chords and spat and stuff.
     var gate = 2.rand;
     <<expand_array>>
     <<chorder>>
+    ~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
     amps = Array.with(0.1, 0.1, 0.1);
     // Arrays for notes and spatialization.
     chord = ~freqs.value(~notesArrays.rowAt(ndx), base);
@@ -776,12 +829,14 @@ Definition of the chords and spat and stuff.
     // ~pbindExpand.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps);
     if(gate == 0,
           {
-            "Playing Pbind A".postln;	  
-            ~distExpandA.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, rrand(3,6));
+            "Playing Pbind A".postln;
+            "Global rep is ".post; ~globalRep.postln;
+            ~distExpandA.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, ~globalRep);	  
           },
           {
-            "Playing Pbind B".postln;	  	  
-            ~distExpandB.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, rrand(3,6));
+            "Playing Pbind B".postln;
+            "Global rep is ".post; ~globalRep.postln;
+            ~distExpandB.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, ~globalRep);
           }
     );
   };
@@ -849,6 +904,9 @@ Expansion function with separate events sending the notes to the [[chord_player]
 Expansion function using two Pbinds that sequence through the notes, making events send the notes to the [[chord_player][SynthDef]]
 #+name: dist_expand_a
 #+begin_src sclang
+  /*
+    Setting reps=3 makes a 25 second event, to 5 a 35 second event (delta * reps).
+  ,*/
   ~distExpandA = { |out, chord, spat, el, rad, amp, reps|
     var pbA, pbB, timeA = 0.009, timeB = 0.01, len = 3, mChordExp, mChord, mAmp;
     mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
@@ -863,10 +921,10 @@ Expansion function using two Pbinds that sequence through the notes, making even
             \el, Pseq(el, reps),
             \rad, Pseq(rad, reps),
             \amp, Pseq(mAmp, reps),
-            \length, Pseq([len, len], reps) * Prand([(1..4)], reps),
+            \length, Pseq([len, len], reps) * Prand([(1..3)], reps),
             \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),
             \dur, Prand(chord, reps) * timeA,
-            \delta, 2;	  
+            \delta, 7;	  
           ).play;
           4.wait;
           pbB = Pbind(\instrument, "chordPlayer",
@@ -876,10 +934,10 @@ Expansion function using two Pbinds that sequence through the notes, making even
             \el, Pseq(el, reps),
             \rad, Pseq(rad, reps),
             \amp, Pseq(mAmp, reps),
-            \length, Pseq([len, len], inf) * Prand([(1..4)], reps),
-            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),   
+            \length, Pseq([len, len], inf) * Prand([(2..3)], reps),
+            \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),	  
             \dur, Prand(chord, reps) * timeB,
-            \delta, 2;	  
+            \delta, 5;	  
           ).play;
     };
   };
@@ -889,60 +947,62 @@ Expansion function using two Pbinds that sequence through the notes, making even
   Expansion function with one Pbind for each note of the chord, sllightly offset in time. Events are sent to the [[chord_player][SynthDef]].
 
   Altering between dist_expand_a and this could be a nice way of getting enough variation. The time between the Pbinds and the lenght of the notes needs to be checked here.
-  ,#+name: dist_expand_b
-  ,#+begin_src sclang
-  ~distExpandB = { |out, chord, spat, el, rad, amp, rep|
-      var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
-      mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
-      mChord = mChordExp[0];
-      mAmp = mChordExp[1];
-      "called distExpand".postln;
-      fork {
-		  pbA = Pbind(\instrument, "chordPlayer",
-			  \out, out[0],
-			  \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
-			  \az, spat[0],
-			  \el, el[0],
-			  \rad, rad[0],
-			  \amp, amp[0],
-			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),   
-			  \dur, chord[0] * timeA,
-			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);	  
-		  ).play;
-		  3.wait;
-		  pbB = Pbind(\instrument, "chordPlayer",
-			  \out, out[1],
-			  \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
-			  \az, spat[1],
-			  \el, el[1],
-			  \rad, rad[1],
-			  \amp, amp[1],
-			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
-			  \dur, chord[1] * timeA,
-			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
-		  ).play;
-		  6.wait;
-		  pbC = Pbind(\instrument, "chordPlayer",
-			  \out, out[2],
-			  \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
-			  \az, spat[2],
-			  \el, el[2],
-			  \rad, rad[2],
-			  \amp, amp[2],
-			  \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
-			  \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),      
-			  \dur, chord[2] * timeA,
-			  \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
-		  ).play;
-		  eventLength.wait;
-		  pbA.stop;
-		  pbB.stop;
-		  pbC.stop;
-      };
+  #+name: dist_expand_b
+  #+begin_src sclang
+    /*
+Setting rep = 3 yields 25s, 5 yields 44s.
+*/
+~distExpandB = { |out, chord, spat, el, rad, amp, rep = 2|
+  var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
+  mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+  mChord = mChordExp[0];
+  mAmp = mChordExp[1];
+  "called distExpand".postln;
+  fork {
+        pbA = Pbind(\instrument, "chordPlayer",
+          \out, out[0],
+          \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
+          \az, spat[0],
+          \el, el[0],
+          \rad, rad[0],
+          \amp, amp[0],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[0] * timeA,
+          \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        3.wait;
+        pbB = Pbind(\instrument, "chordPlayer",
+          \out, out[1],
+          \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
+          \az, spat[1],
+          \el, el[1],
+          \rad, rad[1],
+          \amp, amp[1],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[1] * timeA,
+          \delta, 3 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        6.wait;
+        pbC = Pbind(\instrument, "chordPlayer",
+          \out, out[2],
+          \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
+          \az, spat[2],
+          \el, el[2],
+          \rad, rad[2],
+          \amp, amp[2],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[2] * timeA,
+          \delta, 3 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        eventLength.wait;
+        pbA.stop;
+        pbB.stop;
+        pbC.stop;
   };
-  ~distExpandB.value([ 0, 0, 0 ], [ 654.80625, 523.845, 436.5375 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+};
 #+end_src
 
 ** Ambisonics
@@ -1120,7 +1180,7 @@ Ndef version for PitchShift
             SoundIn.ar(\micIn.kr(~audioInBus), 1) * \shiftInputVol.kr(1),	  
             freq, \pitchRatio.kr(1.1),
             \formantRatio.kr(1), \minFreq.kr(10),
-            \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(1.5);
+            \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(0);
     };
   });
 #+end_src
@@ -1167,9 +1227,13 @@ Ambisonics encoder for panning the signal.
   });
 
   ~encoders.do({ arg obj, int;
+    var az, el, rad;
+    az = ~spatArrays.rowAt(0);
+    el = ~elArrays.rowAt(0);
+    rad = ~radArrays.rowAt(0);
     obj.fadeTime = ~fadeTime;
     obj.source = {
-          HOAEncoder.ar(~order, \in.ar(0), \az.kr(1.7), \el.kr(0), 0.5, \spherical.ir(1), \rad.kr(1), 1.07);
+          HOAEncoder.ar(~order, \in.ar(0), \az.kr(az[int]), \el.kr(el[int]), 0.5, \spherical.ir(1), \rad.kr(rad[int]), 1.07);
     };
   });
 
@@ -1304,12 +1368,12 @@ No support here for stereopanning for the moment
                   SoundIn.ar(\micIn.kr(~audioInBus), 1)  * \shiftInputVol.kr(1),
                   freq, \pitchRatio.kr(ratio[int]),
                   \formantRatio.kr(1), \minFreq.kr(10),
-                  \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(1.5);
+                  \maxFormantRatio.kr(10), \grainsPeriod.kr(2)) * \shiftVol.kr(0);
       };
           ~encoders[int].source = {
             HOAEncoder.ar(~order, \in.ar(0), \az.kr(az[int]), \el.kr(el[int]), 0.5, \spherical.ir(1), \rad.kr(rad[int]), 1.07);
-          };
-    });
+            };
+          });
   };
 #+end_src
 
