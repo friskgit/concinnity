@@ -1,0 +1,641 @@
+#+OPTIONS: num:nil toc:nil date:nil
+#+LATEX_HEADER: \usepackage[cm]{fullpage}
+# #+PROPERTY: header-args: :noweb yes :exports results
+
+* microtonal lilypond example
+#+begin_src lilypond :file micro.png
+  \version "2.24.1"
+  #(ly:set-option 'use-paper-size-for-page #f)
+  #(ly:set-option 'tall-page-formats 'png)
+  \paper{
+    indent=0\mm
+    tagline=""
+    line-width=170\mm
+    oddFooterMarkup=##f
+    oddHeaderMarkup=##f
+    bookTitleMarkup=##f
+    scoreTitleMarkup=##f
+  }
+  \include "ekme-heji.ily"
+
+  musico = {
+    \accidentalStyle "dodecaphonic"
+    c'4    % 1/1
+    g'4    % 3/2
+    esoaa' % 5/4
+    bfoba' % 7/4
+    foca'  % 11/8
+    aoda'  % 13/8
+    csoea'  % 17/16
+    s2
+  }
+
+  musicu = {
+    \accidentalStyle "dodecaphonic"
+    c'4    % 1/1
+    g'4    % 3/2
+    esuaa' % 5/4
+    bfuba' % 7/4
+    fuca'  % 11/8
+    auda'  % 13/8
+    csuea'  % 17/16
+  }
+  \score {
+    \new Staff <<
+      {
+        \new Voice
+        {
+          \musico \musico
+        }
+      }
+    >>  
+  }
+#+end_src
+
+#+RESULTS:
+[[file:micro.png]]
+
+* algorithm for factorization (pseudo)
+[[https://people.revoledu.com/kardi/tutorial/BasicMath/Prime/Algorithm-PrimeFactor.html][Collected from here]]
+#+DOWNLOADED: screenshot @ 2023-07-26 18:44:09
+"#+attr_html: :width 300px :align left"
+"#+attr_org: :width 1200px"
+#+attr_html: :width 500px
+[[file:img/algorithm_for_factorization_(pseudo)/2023-07-26_18-44-09_screenshot.png]]
+
+* lua implementation
+See also the original in [[file:~/org/babel/luastuff.org::*lua][lua]] (where there are more functions). Factorizes a number and returns its largest prime factor following this suggestion: [[*algorithm for factorization (pseudo)][algorithm for factorization (pseudo)]]
+
+This version returns 1 in some instances (such as ~factorize(81)~ for example). The version below corrects this in an unusually clumsy way.
+#+name: factorize
+#+begin_src lua :results output :exports both
+  function factorize(N)
+     local p = 2
+     while N >= p*p do
+        while N % p == 0 do
+           N = N / p end
+        p = p+1
+     end
+        return N
+  end
+
+  io.write(factorize(80))
+#+end_src
+
+#+RESULTS: factorize
+: 5
+
+Corrects the erroneous return of 1 in some instances.
+#+begin_src lua :results output :exports both
+  function factorize(N)
+     local p = 2
+     local parr = {}
+     while N >= p*p do
+        while N % p == 0 do
+           table.insert(parr, p)
+           N = N / p end
+        p = p+1
+     end
+     table.insert(parr, N)
+     return parr
+  end
+
+  local a = factorize(81)
+  print(math.max(table.unpack(a)))
+
+#+end_src
+
+#+RESULTS:
+: 3
+
+This pretty prints the output.
+#+begin_src lua :results output :exports both
+    function factorize(N)
+       local p = 2
+       io.write(N .. " = ")
+       while N >= p*p do
+          while N % p == 0 do
+             io.write(p .. " * ")
+             N = N / p end
+          p = p+1
+       end
+          io.write(N .. "\n")
+    end
+
+  factorize(80)
+#+end_src
+
+#+RESULTS:
+: 80 = 2 * 2 * 2 * 2 * 5.0
+
+Check the largest prime number as factors for both numerator and denominator
+#+begin_src lua :results output :exports both :noweb yes
+  <<factorize>>
+  function check_fraction(n, d)
+     io.write(factorize(n))
+     io.write(factorize(d))
+  end
+
+  check_fraction(81 80)
+
+     -- io.write(factorize(81))
+#+end_src
+
+#+RESULTS:
+
+* scheme implementation
+:PROPERTIES:
+:header-args: :results value :noweb yes
+:END:
+Introduction to using these scripts
+- Set guile to be the active implementation
+#+begin_src emacs-lisp
+  (setf geiser-active-implementations '(guile))
+#+end_src
+
+#+RESULTS:
+| guile |
+
+** harmonic distance and similar
+See [cite:@Nicholson2019] for an introduction and [[file:~/Dropbox/roam/references/Nicholson2019.org][the notes]] for more information. Also [cite:@Tenney2014]
+and the [[file:/Volumes/Freedom/Dropbox/roam/references/Tenney2014.org::\[cite:@Tenney2014\]][notes to that paper]].
+*** cents from ratio
+Argument given as a string ratio.
+#+name: cent_func
+#+begin_src scheme :var ratio="5/4"
+<<log2_func>>
+(* 1200 (log2 (string->number ratio)))
+#+end_src
+
+#+RESULTS: cent_func
+: 386.3137138648348
+
+Same as above, but argument given as n, d (n/d)
+#+begin_src scheme :var n=3 d=2 :results value
+  <<log2_func>>
+  (* 1200 (log2 (rationalize (inexact->exact (/ n d)) 1/100)))
+#+end_src
+
+#+RESULTS:
+: 701.9550008653874
+*** notation, ratio -> lilypond
+Table of note names associated with indexes (cents/100) departing from the note C. Transposition is simple by adding number of half tone steps to the index lookup.
+#+name: note_names
+| ndx | name |
+|-----+------|
+|   0 | c    |
+|   1 | cs   |
+|   2 | d    |
+|   3 | ds   |
+|   4 | e    |
+|   5 | f    |
+|   6 | fs   |
+|   7 | g    |
+|   8 | gs   |
+|   9 | a    |
+|  10 | as   |
+|  11 | b    |
+|  12 | c    |
+|-----+------|
+
+This function takes a ratio and maps it to the table ~note_names~ and returns the closest approximated scale tone from C.
+- R is the ratio with which the function is called (n/d)
+- c is the cent representation of the ratio where 1/1 is 0
+- n is the calculated index based on cent value (+ 50) truncated to an integer
+#+name: note_name
+#+begin_src scheme :var tbl=note_names[2:8] :results value
+  <<log2_func>>
+  <<octave_reduction>>
+  (define (note-name n d)
+    (let* ((R (rationalize (inexact->exact (/ n d)) 1/100))
+           (c (* 1200 (log2 R)))
+           (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+      (car (cdr (assoc n tbl)))))
+
+  (note-name 1 1)
+#+end_src
+
+#+RESULTS: note_name
+: c
+#+begin_src scheme :var tbl=note_names[2:8] :results value
+  <<log2_func>>
+  <<octave_reduction>>
+  (define (note-name n d)
+    (let* ((R (octave-reduction (rationalize (inexact->exact (/ n d)) 1/100)))
+           (c (* 1200 (log2 (octave-reduction R))))
+           (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+      (car (cdr (assoc n tbl)))))
+  ;;            n))
+  (note-name 8 3)
+#+end_src
+
+#+RESULTS:
+: f
+#+begin_src scheme :var tbl=note_names[2:8] :results value
+  <<log2_func>>
+  <<octave_reduction>>
+  (define (note-name n d)
+    (let* ((R (octave-reduction (rationalize (inexact->exact (/ n d)) 1/100))))
+           R))
+
+  (note-name 5 2)
+#+end_src
+
+#+RESULTS:
+: 5/4
+
+*** ocatve reduction
+Multiply ratio by 1/2 as in the following:
+#+name: simple_octave_reduction
+#+begin_src scheme 
+  (* 6/4 1/2)
+#+end_src
+
+This function takes any fraction as input and returns its octave normalized version.
+#+name: octave_reduction
+#+begin_src scheme :results value
+  (define (octave-reduction R)
+    (if (> R 2)
+        (octave-reduction (* R 1/2))
+        R))
+
+;;    (octave-reduction 7/4)
+#+end_src
+
+#+RESULTS: octave_reduction
+: 7/4
+
+*** pitch distance
+$f_a$ should be less than $f_b$
+#+begin_src scheme :noweb yes :var fa=440 fb=880
+  <<log2_func>>
+  (- (log2 fa) (log2 fb))
+#+end_src
+
+#+RESULTS:
+: -1.0
+
+*** harmonic distance
+#+begin_src scheme :noweb yes :var fa=440 fb=880
+  <<log2_func>>
+  (+ (log2 fa) (log2 fb))
+#+end_src
+
+#+RESULTS:
+: 18.56271942704932
+
+*** crystal growth
+See page 48 of [cite:@Tenney2008]:
+
+$S(y) = log_2(2*3^2) = 4.17$
+
+#+begin_src scheme :noweb yes
+  <<log2_func>>
+  (log2 (* 2 (expt 3 2)))
+#+end_src
+
+#+RESULTS:
+: 4.169925001442312
+
+*** ratio difference
+This is simple in scheme
+#+begin_src scheme
+  (/ 3/2 4/3)
+#+end_src
+
+and is the equivalence of multiplying $3/2 * 3/4$ (the reciprocal of the second fraction)
+#+begin_src scheme
+  (* 3/2 3/4)
+#+end_src
+
+#+RESULTS:
+: 9/8
+
+*** utility functions
+#+name: log2_func
+#+begin_src scheme
+    (define (log2 x) (/ (log x) (log 2)))
+;;  (log2 2)
+#+end_src
+
+#+name: sqrt_func
+#+begin_src scheme 
+  (define (square x ) (* x x)) 
+#+end_src
+** pedagogic scheme factorization
+Working scheme implementation of a prime factorizer that returns the greatest prime. This version makes a pretty list of the results for debugging reasons
+#+begin_src scheme :results output
+  (define (simple-factorize x p)
+    (if (>= x (* p p))
+        (begin (display x) (display ", ") (display p) (newline)
+               (cond
+                [(eq? 0 (remainder x p)) (simple-factorize (/ x p) p)]
+                [else (simple-factorize x (+ p 1))]))
+        (display x)))
+
+  (simple-factorize 25 2)
+#+end_src
+
+#+RESULTS:
+: Geiser Interpreter produced no output
+
+** working scheme factorization
+See [[*pedagogic scheme factorization][pedagogic scheme factorization]] for a printed version of the algorithm. Call:
+
+~(simple-factorize N p)~ where N is the number to factorize and p is the starting prime (most likely always 2)
+#+begin_src scheme :results value
+  (define (simple-factorize x p)
+    (if (>= x (* p p))
+        (cond
+         [(eq? 0 (remainder x p)) (simple-factorize (/ x p) p)]
+         [else (simple-factorize x (+ p 1))]
+         )
+    x))
+
+  ;; (simple-factorize 25 2)
+#+end_src
+
+Added (unnecessary) check for prime using a [[*fermat][fermat test]] which is likely to speed up the function, or making it more accurate for large numbers. Use like this:
+
+~(simple-factorize N p)~ where N is the number to factorize and p is the starting prime (most likely always 2)
+#+name: simple_factorize
+#+begin_src scheme :results value :noweb yes
+   <<is_prime>>
+   (define (simple-factorize x p)
+     (if (fermat-test x)
+         x
+         (if (>= x (* p p))
+             (cond
+              [(eq? 0 (remainder x p)) (simple-factorize (/ x p) p)]
+              [else (simple-factorize x (+ p 1))]
+              )
+             x)))
+
+  (simple-factorize 32 2)
+#+end_src
+
+#+RESULTS: simple_factorize
+: 2
+
+
+*** Call simple-factorization with a string ratio
+
+Give a ratio as string and returns the largest prime factor of the numerator and denominator by way of [[*working scheme factorization][working scheme factorization]].
+#+begin_src scheme :results value :noweb yes :var ratio="81/80"
+  <<simple_factorize>>
+  (apply max
+         (list 
+          (simple-factorize (string->number (car (string-split ratio #\/))) 2 )
+          (simple-factorize (string->number (car (cdr (string-split ratio #\/)))) 2)
+          )
+         )
+#+end_src
+
+#+RESULTS:
+: 5
+The logic here should be the following:
+
+| prime | notation                    | notename |
+|-------+-----------------------------+----------|
+|     2 | notename + alteration (f/s) |          |
+|     3 | notename + alteration       |          |
+|     5 | notename + alteration + oaa |          |
+|     7 | notename + alteration + oba |          |
+|    11 | notename + alteration + oca |          |
+|    13 | notename + alteration + oda |          |
+|    17 | notename + alteration + oea |          |
+
+** prime numbers
+This works fine.
+*** fermat
+Perform a Fermat test if the given number is a prime number. [[https://aliquote.org/post/prime-factorization/][Extracted from here]].
+#+name: is_prime
+#+begin_src scheme :results value :noweb yes
+    (define (square x) (* x x)) 
+
+    (define (expmod base exp m) 
+      (cond ((= exp 0) 1) 
+            ((even? exp) 
+             (remainder (square (expmod base (/ exp 2) m)) 
+                        m)) 
+            (else 
+             (remainder (* base (expmod base (- exp 1) m)) 
+                        m))))         
+
+    (define (full-fermat-prime? n) 
+      (define (iter a n) 
+        (if (= a n) true 
+            (if (= (expmod a n n) a) (iter (+ a 1) n) false))) 
+      (iter 1 n)) 
+
+  (define (fermat-test n)
+    (define (test a)
+      (= (expmod a n n) a))
+    (define (iter a)
+      (if (< a n)
+          (if (test a)
+              (iter (+ a 1))
+              #f)
+          #t))
+    (iter 1))
+
+  (fermat-test 5)
+#+end_src
+
+#+RESULTS: is_prime
+: #t
+
+* synthesis
+#+begin_src sclang :results none
+  SynthDef(\osc, {
+          var freq, amp, sig;
+          freq = \root.kr(440) * \pos.kr(1);
+          amp = \amplitude.kr(0.2) / \pos.kr(1);
+          sig = SinOsc.ar(freq, 0, amp);
+          Out.ar(\out.kr, sig * EnvGen.kr(Env.adsr, \gate.kr(0), doneAction: Done.freeSelf));
+  }).add;
+  //a = Synth.new(\osc, [\root, 400, \pos, 4, \amplitude, 0.5 ]);
+#+end_src
+
+#+begin_src sclang :results none
+  (
+  MIDIClient.init;
+  MIDIIn.connectAll;
+  MIDIIn.connect;    // init for one port midi interface
+  ~noteOff = { arg src, chan, num, vel;    [chan,num,vel / 127].postln; };
+
+  ~noteOn = { arg src, chan, num, vel;    [chan,num,vel / 127].postln; };
+
+  ~control = { arg src, chan, num, val;
+          var root_l=60, amp_l=0.2;
+          //          [chan,num,val].postln;
+          x = switch(num)
+          {28} {
+                  if (val == 127,  
+                          {a = Synth.new(\osc, [\root, root_l.midicps, \pos, 1, \amplitude, amp_l, \gate, 1 ]);},
+                          {a.set(\gate, 0); a.free;}); 
+          }
+
+          {29} {
+                  if (val == 127,  
+                          {b = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 1, \amplitude, amp_l,  \gate, 1]);},
+                          {b.set(\gate, 0); b.free;}); 
+          }
+          {30} {
+                  if (val == 127,  
+                          {c = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
+                          {c.set(\gate, 0); c.free;}); 
+          }
+          {31} {
+                  if (val == 127,  
+                          {d = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
+                          {d.set(\gate, 0); d.free;}); 
+          }
+          {24} {
+                  if (val == 127,  
+                          {e = Synth.new(\osc, [\root, root_l.midicps, \pos, 2, \amplitude, amp_l, \gate, 1 ]);},
+                          {e.set(\gate, 0); e.free;}); 
+          }
+          {25} {
+                  if (val == 127,  
+                          {f = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 2, \amplitude, amp_l,  \gate, 1]);},
+                          {f.set(\gate, 0); f.free;}); 
+          }
+          {26} {
+                  if (val == 127,  
+                          {g = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 2, \amplitude, amp_l, \gate, 1]);},
+                          {g.set(\gate, 0); g.free;}); 
+          }
+          {27} {
+                  if (val == 127,  
+                          {a = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 2, \amplitude, amp_l, \gate, 1]);},
+                          {a.set(\gate, 0); a.free;}); 
+          }
+          {20} {
+                  if (val == 127,  
+                          {h = Synth.new(\osc, [\root, root_l.midicps, \pos, 3, \amplitude, amp_l, \gate, 1 ]);},
+                          {h.set(\gate, 0); h.free;}); 
+          }
+          {21} {
+                  if (val == 127,  
+                          {i = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 3, \amplitude, amp_l,  \gate, 1]);},
+                          {i.set(\gate, 0); i.free;}); 
+          }
+          {22} {
+                  if (val == 127,  
+                          {j = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
+                          {j.set(\gate, 0); j.free;}); 
+          }
+          {23} {
+                  if (val == 127,  
+                          {k = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
+                          {k.set(\gate, 0); k.free;}); 
+          }
+          {16} {
+                  if (val == 127,  
+                          {l = Synth.new(\osc, [\root, root_l.midicps, \pos, 4, \amplitude, amp_l, \gate, 1 ]);},
+                          {l.set(\gate, 0); l.free;}); 
+          }
+          {17} {
+                  if (val == 127,  
+                          {m = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 4, \amplitude, amp_l,  \gate, 1]);},
+                          {m.set(\gate, 0); m.free;}); 
+          }
+          {18} {
+                  if (val == 127,  
+                          {n = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
+                          {n.set(\gate, 0); n.free;}); 
+          }
+          {19} {
+                  if (val == 127,  
+                          {o = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
+                          {o.set(\gate, 0); o.free;}); 
+          }
+          {44} {
+                  a.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {45} {
+                  b.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {46} {
+                  c.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {47} {
+                  d.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {40} {
+                  e.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {41} {
+                  f.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {42} {
+                  g.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {43} {
+                  h.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {36} {
+                  i.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {37} {
+                  j.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {38} {
+                  k.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {39} {
+                  l.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {32} {
+                  m.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {33} {
+                  n.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {34} {
+                  o.set(\root, (((val / 12) - 6) + root_l).midicps);
+          }
+          {35} {
+                  p.set(\root, (((val / 12) - 6) + root_l).midicps);
+          };
+
+          num.postln;
+
+  };
+
+  MIDIIn.addFuncTo(\noteOn, ~noteOn);
+  MIDIIn.addFuncTo(\noteOff, ~noteOff);
+  MIDIIn.addFuncTo(\control, ~control);
+  )
+#+end_src
+
+#+begin_src sclang
+  //  a.set(\root, 100);
+a.set(\gate, 0);
+  a.free;
+#+end_src
+
+Free function
+#+name: free_all
+#+begin_src sclang :results none
+  MIDIIn.removeFuncFrom(\noteOn, ~noteOn);
+  MIDIIn.removeFuncFrom(\noteOff, ~noteOff);
+  MIDIIn.removeFuncFrom(\control, ~control);
+#+end_src
+* version and paper
+#+name: version-and-paper
+#+begin_src lilypond :exports none
+  \version "2.24.1"
+  #(ly:set-option 'use-paper-size-for-page #f)
+  #(ly:set-option 'tall-page-formats 'png)
+  \paper{
+    indent=0\mm
+    tagline=""
+    line-width=170\mm
+    oddFooterMarkup=##f
+    oddHeaderMarkup=##f
+    bookTitleMarkup=##f
+    scoreTitleMarkup=##f
+  }
+  #+end_src

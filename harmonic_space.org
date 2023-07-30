@@ -112,7 +112,6 @@ The result needs to be named ~pitches~
 | 27/14 |
 | 5/3   |
 
-
 *** table of pitch-space mapping
 Following the map in the paper Crystal Growth [cite:@tenney08_growt_harmon_space] by Tenney the following mapping between pitch and space is proposed:
 #+name: pitch_space_map
@@ -342,13 +341,16 @@ Script to create the MatrixArray for supercollider from the [[pitches][pitch lis
 
 * Info
 The function to transform ratio $m/n$ to cents is:
+
 \begin{equation}
 1200 * log(m/n) / log(2)
 \end{equation}
-And the formula for Hertz is simply:
+
+And the formula for Hertz is simply: 
 \begin{equation}
 m/n*freq
 \end{equation}
+
 To reduce ratios (Hållsten)
 #+begin_src sclang
   f = {|a, b|
@@ -360,6 +362,31 @@ To reduce ratios (Hållsten)
 
   f.value(3, 2).postln;
 #+end_src
+* Doc
+#+DOWNLOADED: file:/Volumes/Freedom/Dropbox/Music/pieces/harmonic_space/doc/Scan 1.jpeg @ 2023-07-02 15:09:51
+"#+attr_html: :width 300px :align left"
+"#+attr_org: :width 1200px"
+#+attr_html: :width 500px
+[[file:img/Doc/2023-07-02_15-09-51_Scan 1.jpeg]]
+
+#+DOWNLOADED: file:/Volumes/Freedom/Dropbox/Music/pieces/harmonic_space/doc/Scan 2.jpeg @ 2023-07-02 15:10:06
+"#+attr_html: :width 300px :align left"
+"#+attr_org: :width 1200px"
+#+attr_html: :width 500px
+[[file:img/Doc/2023-07-02_15-10-06_Scan 2.jpeg]]
+
+#+DOWNLOADED: file:/Volumes/Freedom/Dropbox/Music/pieces/harmonic_space/doc/Scan 3.jpeg @ 2023-07-02 15:10:09
+"#+attr_html: :width 300px :align left"
+"#+attr_org: :width 1200px"
+#+attr_html: :width 500px
+[[file:img/Doc/2023-07-02_15-10-09_Scan 3.jpeg]]
+
+#+DOWNLOADED: file:/Volumes/Freedom/Dropbox/Music/pieces/harmonic_space/doc/Scan.jpeg @ 2023-07-02 15:10:17
+"#+attr_html: :width 300px :align left"
+"#+attr_org: :width 1200px"
+#+attr_html: :width 500px
+[[file:img/Doc/2023-07-02_15-10-17_Scan.jpeg]]
+
 * Boot Server
 Set JackRouter to be the interface on Linux
 #+name: boot_jack
@@ -369,6 +396,8 @@ Set JackRouter to be the interface on Linux
   o.numOutputBusChannels = 32;
   o.numWireBufs = 128;
   o.memSize  = (65536 * 4);
+  //  Server.default.options.device_("MADIface XT (23757085)");
+  //Server.default.options.device_("Blackhole 64ch");
   //     s.makeWindow;
   //  s.makeGui(p);
   s.boot;
@@ -389,8 +418,15 @@ Alternative for higher orders
   o.sampleRate = 48000;
   s.boot;
   )
-#+End_src
+#+end_src
 
+#+begin_src sclang :results none
+  {
+          a = SinOsc.ar(440, 0, 0.1, 0);
+          Out.ar(13, a);
+          Out.ar(14, a);
+  }.play;
+#+end_src
 * GUI
 :PROPERTIES:
 :tangle:   ./harmonic_space_gui.scd
@@ -400,14 +436,14 @@ Alternative for higher orders
   (
   var countSec = 0, countMin = 0, secString;
   AppClock.sched(0.0,{ arg time;
-    countSec = (countSec+1)%60;
-    if(countSec == 0,
-          { countMin = countMin+1 });
-    if(countSec < 10,
-          {secString = "0"++countSec; },
-          {secString = countSec; });
-    countMin.post; ".".post; secString.postln;
-    1;
+	  countSec = (countSec+1)%60;
+	  if(countSec == 0,
+	  { countMin = countMin+1 });
+	  if(countSec < 10,
+	  {secString = "0"++countSec; },
+	  {secString = countSec; });
+	  countMin.post; ".".post; secString.postln;
+	  1;
   });
   )
 #+end_src
@@ -595,6 +631,185 @@ Alternative for higher orders
   )
 #+end_src
 
+#+RESULTS: main_gui
+#+begin_example
+(
+var sax, synth, master, mute, currentInputVal, wind, text, textC, textB, textD, mapA, mapB, step, plus, minus, number, annotX, annotY, annotZ, time, start, myClock, input, meters, seqTask, offset = 0;
+wind = Window.new("Main", Rect(128, 64, 620, 400)).front;
+mapA = ControlSpec(0, 2, \linear, 0.01); // min, max, mapping, step
+mapB = ControlSpec(0, 1, \linear, 0.01); // min, max, mapping, step
+
+// Sax volume                                                                               
+text = StaticText(wind, Rect(20, 20, 40, 20)).align_(\center);
+annotX = StaticText(wind, Rect(15, 350, 50, 20)).align_(\center);
+annotX.string_("PitchShift");
+sax = Slider(wind, Rect(20, 50, 40, 300))
+.value_(0.0)
+.action_({
+  text.string_(mapA.map(sax.value).asString);
+  ~shiftVol.value(mapA.map(sax.value));  
+});
+sax.action.value;
+
+// Input volume
+textC = StaticText(wind, Rect(90, 20, 40, 20)).align_(\center);
+annotZ = StaticText(wind, Rect(85, 350, 50, 20)).align_(\center);
+annotZ.string_("Input");
+input = Slider(wind, Rect(90, 50, 40, 300))
+.value_(0.0)
+.action_({
+  textC.string_(mapA.map(input.value).asString);
+  ~shiftInputVol.value(input.value);
+});
+input.action.value;
+
+{
+  SendPeakRMS.kr(Dust.ar(20), 20, 3, "/replyAddress")
+}.play;
+
+// Synth volume
+textB = StaticText(wind, Rect(160, 20, 40, 20)).align_(\center);
+annotY = StaticText(wind, Rect(155, 350, 50, 20)).align_(\center);
+annotY.string_("Synth");
+synth = Slider(wind, Rect(160, 50, 40, 300))
+.value_(0.2)
+.action_({
+  textB.string_(mapB.map(synth.value).asString);
+  //~globSynthVol.set(synth.value);
+});
+synth.action.value;
+
+// Button
+step = Button(wind, Rect(240, 50, 100, 100))
+.states_([
+  ["0"], ["1"], ["2"],["3"], ["4"],["5"], ["6"],["7"], ["8"],["9"], ["10"],["11"], ["12"],["B1"], ["B2"],["B3"], ["B4"],["C1"], ["C2"],["C3"], ["C4"], ["End"];
+])
+.action_({ arg butt;
+  "Current event is: ".post;
+  (butt.value - 1).postln;
+  ~change.value(butt.value-1);
+});
+step.font = Font("Helvetica", 32, bold: true);
+
+number = NumberBox(wind, Rect(240, 170, 100, 40)).align_(\center);
+number.font  = Font("Helvetica", 26, bold: true);
+number.string = 1;
+number.action = {arg num;
+  //    step.value = num.value-1;
+  number.value = number.value-1;
+};
+
+// Goto
+plus = Button(wind, Rect(240, 230, 45, 60))
+.string_("+")
+.action_({ arg butt;
+  //    step.value = step.value+1;
+  number.value = number.value+1;
+});
+plus.font = Font("Helvetica", 32, bold: true);
+
+minus = Button(wind, Rect(295, 230, 45, 60))
+.string_("-")
+.action_({ arg butt;
+  step.value = step.value-1;
+});
+minus.font = Font("Helvetica", 32, bold: true);
+
+meters = Button(wind, Rect(420, 300, 160, 45))
+.string_("Meter")
+.action_({s.meter;});
+meters.font = Font("Helvetica", 24, bold: true);
+//myClock.value.postln;
+
+time = StaticText(wind, Rect(420, 30, 200, 100)); //.align_(\center);
+time.font = Font("Helvetica", 64, bold: true);
+time.string_("00:00");
+
+start = Button(wind, Rect(420, 140, 160, 45))
+.string_("Start")
+.action_({ arg butt;
+  if(start.string == "Start",
+        { myClock.value();
+          start.string_("Stop");
+          seqTask = ~runSequencer.value(number.value.asInteger);	  
+        },
+        {
+          AppClock.clear;
+          start.string_("Start");
+          seqTask.stop;	  
+        });
+});
+start.font = Font("Helvetica", 24, bold: true);
+
+mute = Button(wind, Rect(420, 200, 160, 45))
+.string_("Mute")
+.action_({ arg butt;
+  //    ~shiftInputVol.value(input.value);
+  if(mute.string == "Mute",
+        {
+          currentInputVal = input.value;	  
+          input.valueAction_(0);	  
+          mute.string_("Unmute");
+        },
+        {
+          mute.string_("Mute");
+          input.valueAction_(currentInputVal);	  
+        });
+
+});
+mute.font = Font("Helvetica", 24, bold: true);
+
+myClock = {
+  var countSec = 0, countMin = 0, secString, res;
+  AppClock.sched(0.0, { arg tme;
+        countSec = (countSec+1)%60;
+        if(countSec == 0,
+          { countMin = countMin+1 });
+        if(countSec < 10,
+          {secString = "0"++countSec; },
+          {secString = countSec; });
+        if(countMin < 10,
+          {countMin = "0"++countMin; });
+        //countMin.post; ".".post; secString.postln;
+        time.string = countMin++":"++secString;
+        1;
+  });
+};
+
+~runSequencer = { arg offset = 0;
+  var seqTask, items;
+  items = ~sections.size - offset;
+
+  seqTask = Task({
+        items.do({ arg time, index;
+          var ndx, section_length;
+          AppClock.clear;
+          myClock.value();
+          // make sure ndx is in range of ~sections (time)
+          if((index + offset) < ~sections.size,
+                { ndx = index + offset; },
+                { ndx = ~sections.size - 1; });
+          section_length = ~sections[ndx];
+          "*** Section ".post; ndx.post; " ***".postln;
+          if(ndx != 0,
+                { "Turn on sax".postln;
+                  ~shiftInputVol.value(0.6);
+                  ~globalRep = ~pBindReps[ndx];
+                  ~change.value(~sectionOrder[ndx]);
+                  //~change.value(ndx-1);
+                },
+                { "Turn off sax".postln;
+                  ~shiftInputVol.value(0); });
+          "  --- waiting for ".post; section_length.post; " seconds".postln;
+          section_length.wait;
+        });
+        "Sequence end".postln;
+  }).play;
+  seqTask;
+};
+)
+#+end_example
+
 #+begin_src sclang :results none
   a = { SinOsc.ar(558, 0, 0.1)}.play
   b = { SinOsc.ar(523, 0, 0.1)}.play
@@ -718,13 +933,14 @@ Default settings
 
 Play function
 #+begin_src sclang :results none
-  ~notesArrayFunc.value(0, ~defaultChOffset, ~baseFreq);
+  ~notesArrayFunc.value(8, ~defaultChOffset, ~baseFreq);
   //s.meter;
 #+end_src
 
 #+begin_src sclang :results none
   Env.new(levels: [0, 1, 0.9, 0.5, 0], times: [0.3, 0.1, 0.2, 0.4], curve: [-3, 1, 2, -2]).plot;
 #+end_src
+
 Call this function as to make harmonic multichannel expansion for the [[chord_player][SynthDef]] below. 
 #+name: multichannel_exp
 #+begin_src sclang :results none
@@ -761,7 +977,7 @@ Test function
 
 The actual Synthdef that makes the sound.
 #+name: chord_player
-#+begin_src sclang
+#+begin_src sclang :results none
   ~globSynthVol = Bus.control(s, 1);
   ~globSynthVol.set(0.05);
   SynthDef("chordPlayer", { |out, freq, amp, length=20, az=0, el=0, rad=2, spherical=1, combv = 0.1 |
@@ -777,6 +993,24 @@ The actual Synthdef that makes the sound.
     Out.ar(out, HOAEncoder.ar(~order, main * volume, az, el, 0.2, spherical, rad, 1.07));
   }).add;
 #+end_src
+
+#+RESULTS: chord_player
+#+begin_example
+~globSynthVol = Bus.control(s, 1);
+~globSynthVol.set(0.05);
+SynthDef("chordPlayer", { |out, freq, amp, length=20, az=0, el=0, rad=2, spherical=1, combv = 0.1 |
+  var envS = Env.new(levels: [0, 1, 0.9, 0], times: [0.3*length, 0.3*length*0.5, 0.7*length*0.5], curve: [-3, -1, -1]);
+  var envO = Env.new(levels: [0, 1, 0.9, 0.5, 0], times: [0.3*length, 0.1*length, 0.4*length, 0.4*length], curve: [-3, 1, 2, -2]);
+  var sig = Mix.ar(
+        [SyncSaw.ar(freq, ((freq*2) * (rad / 3)), 0.1) * EnvGen.kr(envS),
+          SinOsc.ar(freq, 0.0, amp, 0.0) * EnvGen.kr(envO, doneAction: Done.freeSelf)]
+  );
+  var flt = CombN.ar(sig, 0.01, (az.abs / 3.14 * 0.002), combv);
+  var main = XFade2.ar(flt, sig, (rad/4.5)-1, 1) * 0.2;
+  var volume = In.kr(~globSynthVol);
+  Out.ar(out, HOAEncoder.ar(~order, main * volume, az, el, 0.2, spherical, rad, 1.07));
+}).add;
+#+end_example
 
 #+begin_src sclang :results none
   ~globSynthVol.set(0.1);
@@ -797,7 +1031,7 @@ Modulator (not used)
 
 Definition of the chords and spat and stuff.
 #+name: player_function
-#+begin_src sclang :noweb yes
+#+begin_src sclang :noweb yes :results none
   ~notesArrayFunc = { arg ndx, out, base;
     var chord, outs, size, amps;
     var gate = 2.rand;
@@ -843,6 +1077,74 @@ Definition of the chords and spat and stuff.
   //~notesArrayFunc.value(1, 0, 400);
 #+end_src
 
+#+RESULTS: player_function
+#+begin_example
+~notesArrayFunc = { arg ndx, out, base;
+  var chord, outs, size, amps;
+  var gate = 2.rand;
+  ~expandArray = { |out, chord, spat, el, rad, amp|
+    "called expandArray".postln;
+    fork {
+          [\out, out, \freq, chord, \az, spat, \el, el, \rad, rad, \amp, amp].flop.do { |args|
+            var mArray = ~multichannelArray.value(args[3], args[11], 16);
+            // put it in the third argument, 'chord'	  
+            args.put(3, mArray[0]);
+            // put it in the 11th argument, 'amp'	  
+            args.put(11, mArray[1]);
+            args.postln;	  
+            Synth("chordPlayer", args);
+          }
+    };
+  };
+  // ~expandArray.value([0,1, 0, 1], [220,440, 540, 640]);
+  ~freqs = { arg pitches, base;
+    var new_array = Array.new(pitches.size);
+    pitches.do({ arg item, i;
+          new_array.add((item*base));
+    });
+    new_array;
+  };
+  //  ~freqs.value([2/1, 3/2], 100).postln;
+  ~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+  amps = Array.with(0.1, 0.1, 0.1);
+  // Arrays for notes and spatialization.
+  chord = ~freqs.value(~notesArrays.rowAt(ndx), base);
+  "Chord array: ".post; chord.postln;
+  "Azimuth array: ".post; ~spatArrays.rowAt(ndx).postln;
+  "Elevation array: ".post; ~elArrays.rowAt(ndx).postln;
+  "Radius array: ".post; ~radArrays.rowAt(ndx).postln;
+  outs = Array.new(3);
+  if(chord.size > ~defaultChordSize,
+        { 
+          size = ~defaultChordSize - 1  ;
+        },
+        {
+          size = chord.size;	  
+        });
+  // Set the output to the offset
+  (0..2).do({ arg item;
+        outs.add(~defaultChOffset);
+  });
+  "Amps array: ".post; amps.postln;
+  "Outputs array: ".post; outs.postln;
+  //       ~expandArray.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps);
+  // ~pbindExpand.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps);
+  if(gate == 0,
+        {
+          "Playing Pbind A".postln;
+          "Global rep is ".post; ~globalRep.postln;
+          ~distExpandA.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, ~globalRep);	  
+        },
+        {
+          "Playing Pbind B".postln;
+          "Global rep is ".post; ~globalRep.postln;
+          ~distExpandB.value(outs, chord, ~spatArrays.rowAt(ndx), ~elArrays.rowAt(ndx), ~radArrays.rowAt(ndx), amps, ~globalRep);
+        }
+  );
+};
+//~notesArrayFunc.value(1, 0, 400);
+#+end_example
+
 Test function
 #+begin_src sclang :results none
   ~distExpandB.value([0, 0], [ 654.80625, 523.845, 436.5375 ], [-1.5707963, -1.5707963, -1.5707963 ], [ 0, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
@@ -854,7 +1156,7 @@ Test function
 
 Create the pitch array for the chord.
 #+name: chorder
-#+begin_src sclang
+#+begin_src sclang :results none
   ~freqs = { arg pitches, base;
     var new_array = Array.new(pitches.size);
     pitches.do({ arg item, i;
@@ -864,6 +1166,8 @@ Create the pitch array for the chord.
   };
   //  ~freqs.value([2/1, 3/2], 100).postln;
 #+end_src
+
+
 
 Expansion function, sending the notes to the [[chord_player][SynthDef]]
 #+name: expand_array
@@ -885,6 +1189,25 @@ Expansion function, sending the notes to the [[chord_player][SynthDef]]
   // ~expandArray.value([0,1, 0, 1], [220,440, 540, 640]);
 #+end_src
 
+#+RESULTS: expand_array
+#+begin_example
+~expandArray = { |out, chord, spat, el, rad, amp|
+  "called expandArray".postln;
+  fork {
+        [\out, out, \freq, chord, \az, spat, \el, el, \rad, rad, \amp, amp].flop.do { |args|
+          var mArray = ~multichannelArray.value(args[3], args[11], 16);
+          // put it in the third argument, 'chord'	  
+          args.put(3, mArray[0]);
+          // put it in the 11th argument, 'amp'	  
+          args.put(11, mArray[1]);
+          args.postln;	  
+          Synth("chordPlayer", args);
+        }
+  };
+};
+// ~expandArray.value([0,1, 0, 1], [220,440, 540, 640]);
+#+end_example
+
 Expansion function with separate events sending the notes to the [[chord_player][SynthDef]]
 +name: pbind_expand
 #+begin_src sclang
@@ -900,6 +1223,21 @@ Expansion function with separate events sending the notes to the [[chord_player]
     }
   };
 #+end_src
+
+#+RESULTS:
+#+begin_example
+~pbindExpand = { |out, chord, spat, el, rad, amp|
+  "called pbindExpand".postln;
+  fork {
+        10.do{ arg freq, int;
+          var ndx = 3.rand;
+          //    \out, out, \freq, chord, \az, spat, \el, el, \rad, rad, \amp, amp
+          Synth("chordPlayer", [\out, out, \length, 5, \freq, chord[ndx], \az, spat[ndx], \el, el[ndx], \rad, rad[ndx], \amp, amp[ndx]]);
+          (rad[ndx] * 0.3).wait;   
+        }   
+  }
+};
+#+end_example
 
 Expansion function using two Pbinds that sequence through the notes, making events send the notes to the [[chord_player][SynthDef]]
 #+name: dist_expand_a
@@ -943,6 +1281,48 @@ Expansion function using two Pbinds that sequence through the notes, making even
   };
   //~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
 #+end_src
+
+#+RESULTS: dist_expand_a
+#+begin_example
+/*
+  Setting reps=3 makes a 25 second event, to 5 a 35 second event (delta * reps).
+,*/
+~distExpandA = { |out, chord, spat, el, rad, amp, reps|
+  var pbA, pbB, timeA = 0.009, timeB = 0.01, len = 3, mChordExp, mChord, mAmp;
+  mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+  mChord = mChordExp[0];
+  mAmp = mChordExp[1];
+  "called distExpand".postln;
+  fork {
+        pbA = Pbind(\instrument, "chordPlayer",
+          \out, Pseq(out, reps),
+          \freq, Pseq(mChord, reps) * Prand([1,2], reps),
+          \az, Pseq(spat, reps),
+          \el, Pseq(el, reps),
+          \rad, Pseq(rad, reps),
+          \amp, Pseq(mAmp, reps),
+          \length, Pseq([len, len], reps) * Prand([(1..3)], reps),
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),
+          \dur, Prand(chord, reps) * timeA,
+          \delta, 7;	  
+        ).play;
+        4.wait;
+        pbB = Pbind(\instrument, "chordPlayer",
+          \out, Pseq(out, reps),
+          \freq, Pseq(mChord, reps) * Prand([1,2], reps),
+          \az, Pseq(spat, reps),
+          \el, Pseq(el, reps),
+          \rad, Pseq(rad, reps),
+          \amp, Pseq(mAmp, reps),
+          \length, Pseq([len, len], inf) * Prand([(2..3)], reps),
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], reps),	  
+          \dur, Prand(chord, reps) * timeB,
+          \delta, 5;	  
+        ).play;
+  };
+};
+//~distExpandA.value([ 0, 0, 0 ], [ 558.768, 523.845, 419.076 ], [ 0.78539816, 1.5707963, 0.0 ], [ 0.62831853, 0, 0 ], [ 6, 3, 3 ], [ 0.1, 0.1, 0.1 ]);
+#+end_example
 
   Expansion function with one Pbind for each note of the chord, sllightly offset in time. Events are sent to the [[chord_player][SynthDef]].
 
@@ -1005,12 +1385,69 @@ Setting rep = 3 yields 25s, 5 yields 44s.
 };
 #+end_src
 
+#+RESULTS: dist_expand_b
+#+begin_example
+    /*
+Setting rep = 3 yields 25s, 5 yields 44s.
+,*/
+~distExpandB = { |out, chord, spat, el, rad, amp, rep = 2|
+  var pbA, pbB, pbC, timeA = 0.005, timeB = 0.007, eventLength = 40, len = 3, mChordExp, mChord, mAmp;
+  mChordExp = ~multichannelArray.value(chord, amp, 8, 1);
+  mChord = mChordExp[0];
+  mAmp = mChordExp[1];
+  "called distExpand".postln;
+  fork {
+        pbA = Pbind(\instrument, "chordPlayer",
+          \out, out[0],
+          \freq, mChord[0] * Prand([0.5, 1, 2,], rep),
+          \az, spat[0],
+          \el, el[0],
+          \rad, rad[0],
+          \amp, amp[0],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[0] * timeA,
+          \delta, 5 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        3.wait;
+        pbB = Pbind(\instrument, "chordPlayer",
+          \out, out[1],
+          \freq, mChord[1] * Prand([0.5, 1, 2,], rep),
+          \az, spat[1],
+          \el, el[1],
+          \rad, rad[1],
+          \amp, amp[1],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[1] * timeA,
+          \delta, 3 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        6.wait;
+        pbC = Pbind(\instrument, "chordPlayer",
+          \out, out[2],
+          \freq, mChord[2] * Prand([0.5, 1, 2,], rep),
+          \az, spat[2],
+          \el, el[2],
+          \rad, rad[2],
+          \amp, amp[2],
+          \length, Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep) * len,
+          \combv, Prand([0.1, 0.11, 0.12, 0.13, 0.15, 0.17, 0.19, 0.2], rep),
+          \dur, chord[2] * timeA,
+          \delta, 3 * Prand([1, 1.5, 1.7, 1.9, 2.1, 2.5], rep);
+        ).play;
+        eventLength.wait;
+        pbA.stop;
+        pbB.stop;
+        pbC.stop;
+  };
+};
+#+end_example
+
 ** Ambisonics
 *** Monitor encoded signal
 Execute to monitor the B-format signal starting with bus 0.
 #+begin_src sclang :results none
   ~encoders.play(0, ~hoaNumChannels, vol: 0.5, fadeTime:1.0);
-  ~encoders.scope;
 #+end_src
 
 *** Decoder
