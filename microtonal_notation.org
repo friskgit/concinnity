@@ -239,15 +239,15 @@ This function takes a ratio R and maps it to the table ~note_names~ and returns 
       <<log2_func>>
       <<octave_reduction>>
       (define (note-name R)
-        (let* ((c (* 1200 (log2 R)))
+        (let* ((c (* 1200 (log2 (octave-reduction R))))
                (n (inexact->exact (truncate (/ (+ c 50) 100)))))
           (car (cdr (assoc n notes)))))
     ;;      n))
-;;  (note-name 2/3)
+  (note-name 5/1)
 #+end_src
 
 #+RESULTS: note_name
-: ges
+: e
 
 #+begin_src scheme :results output :var notes=note_names
   <<note_name>>
@@ -272,7 +272,7 @@ This function takes any fraction as input and returns its octave normalized vers
         (octave-reduction (* R 1/2))
         R))
 
-;;    (octave-reduction 7/4)
+    (octave-reduction 7/1)
 #+end_src
 
 #+RESULTS: octave_reduction
@@ -425,10 +425,11 @@ Function to retrieve the extension for the note name as given by the table [[ell
                       ))))
       (car (cddr (assoc p ellis)))))
 
-(format #t "~a" (retrieve-ellis-ext 1/1))
+;; (format #t "~a" (retrieve-ellis-ext 1/1))
 #+end_src
 
 #+RESULTS: retrieve_eh_notation
+: oca
 
 This is the function to call for generating the notes.
 #+begin_src scheme :noweb yes :var ellis=ellis_signs notes=note_names :results output :wrap src lilypond :tangle print.scm
@@ -448,30 +449,7 @@ This is the function to call for generating the notes.
 #+end_src
 
 
-#+RESULTS:
-#+begin_src lilypond
-\version "2.24.1"
-#(ly:set-option 'use-paper-size-for-page #f)
-#(ly:set-option 'tall-page-formats 'png)
-\include "ekme-heji.ily"
-
-music = {
-  \accidentalStyle "dodecaphonic"
-  c
-}
-
-\score {
-  \new Staff {
-    \new Voice {  \music
-    }
-  }
-  \layout{}
-  \midi{}
-  }
-#+end_src
-
-
-This is the function to call for generating the notes.
+This is the function to call for generating the notes. Only here for example.
 #+begin_src scheme :var ellis=ellis_signs notes=note_names :results output :wrap src lilypond :tangle print.scm
   (use-modules (ice-9 format))
   <<retrieve_eh_notation>>
@@ -482,57 +460,16 @@ This is the function to call for generating the notes.
                   (format #t "~a = {\n  ~a\n  ~a~a\n}\n\n" "music" "\\accidentalStyle \"dodecaphonic\"" (note-name R) (retrieve-ellis-ext R))))
          fractions))
 
-  (eh-printer (list 5/4 3/2 1/1))
+  (eh-printer (list 5/4 3/2 1/1 11/1))
 #+end_src
 
-#+RESULTS:
-#+begin_src lilypond
-5/4
-music = {
-  \accidentalStyle "dodecaphonic"
-  eoaa
-}
-
-3/2
-music = {
-  \accidentalStyle "dodecaphonic"
-  g
-}
-
-1
-music = {
-  \accidentalStyle "dodecaphonic"
-  c
-}
-
-#+end_src
-
-#+begin_src scheme :noweb yes
-  <<note-name>>
-
-#+end_src
+map/lamba test
 #+begin_src scheme :results output
     (define (mytest r)
       (map (lambda (R) (display R)) (list 1/1 2/3 3/4))
       )
     (mytest '(2 3 4))
 #+end_src
-
-#+begin_src scheme :results output :noweb yes :var ellis=ellis_signs notes=note_names
-  <<simple_factorize>>
-
-  (define (retrieve-ellis-ext R)
-    (let* ((p (apply max
-                     (list 
-                      (simple-factorize (numerator R) 2)
-                      (simple-factorize (denominator R) 2)
-                      ))))
-      (car (cddr (assoc p ellis)))))
-
-  (format #t "~a" (retrieve-ellis-ext 1/1))
-#+end_src
-
-#+RESULTS:
 
 
 The logic here should be the following:
