@@ -272,11 +272,8 @@ This function takes any fraction as input and returns its octave normalized vers
         (octave-reduction (* R 1/2))
         R))
 
-    (octave-reduction 7/1)
+ ;;   (octave-reduction 7/1)
 #+end_src
-
-#+RESULTS: octave_reduction
-: 7/4
 
 *** pitch distance
 $f_a$ should be less than $f_b$
@@ -449,11 +446,11 @@ This is the function to call for generating the notes.
         )
       )
 
-   (eh-printer '(1/1 3/1 5/1 7/1 9/1 10/1 11/1))
+   (eh-printer '(1/1 3/2 5/4))
 #+end_src
 
 #+RESULTS:
-#+begin_src lilypond :file micro.ly
+#+begin_src lilypond :file micro.png
 \version "2.24.1"
 #(ly:set-option 'use-paper-size-for-page #f)
 #(ly:set-option 'tall-page-formats 'png)
@@ -465,10 +462,6 @@ music = {
     c
     g
     eoaa
-    asoba
-    d
-    eoaa
-    fsoca
   }
 }
 
@@ -482,8 +475,10 @@ music = {
   }
 #+end_src
 
+[cite:@Nicholson2019]
 #+RESULTS:
 [[file:micro.png]]
+
 
 
 This is the function to call for generating the notes. Only here for example.
