@@ -207,7 +207,6 @@ Table of note names associated with indexes (cents/100) departing from the note 
 |  10 | as   |
 |  11 | b    |
 |  12 | c    |
-|  13 | cs   |
 |-----+------|
 
 This function takes a ratio and maps it to the table ~note_names~ and returns the closest approximated scale tone from C.
@@ -232,30 +231,44 @@ This function takes a ratio and maps it to the table ~note_names~ and returns th
 
 This function takes a ratio R and maps it to the table ~note_names~ and returns the closest approximated scale tone from C.
 - R is the ratio with which the function is called
+- O (#t/#f) is if the note should be octave reduced or not.
   - c is the cent representation of the ratio where 1/1 is 0
   - n is the calculated index based on cent value (+ 50) truncated to an integer
 #+name: note_name
 #+begin_src scheme :var notes=note_names :results value
-      <<log2_func>>
-      <<octave_reduction>>
-      (define (note-name R)
-        (let* ((c (* 1200 (log2 (octave-reduction R))))
-               (n (inexact->exact (truncate (/ (+ c 50) 100)))))
-          (car (cdr (assoc n notes)))))
-    ;;      n))
-  (note-name 5/1)
+    <<log2_func>>
+    <<octave_reduction>>
+    (define (note-name R O)
+      (let* ((r (if O
+                    (octave-reduction R)
+                    R))
+             (c (* 1200 (log2 r)))
+             (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+             (car (cdr (assoc n notes)))))
+  ;;          n))
+      (note-name 5/1 #t)
 #+end_src
 
 #+RESULTS: note_name
 : e
 
+Test function
 #+begin_src scheme :results output :var notes=note_names
-  <<note_name>>
-  (format #t "~a" (note-name 1/1))
+    <<log2_func>>
+    <<octave_reduction>>
+    (define (note-name R O)
+      (let* ((r (if O
+                    (octave-reduction R)
+                    R))
+             (c (* 1200 (log2 r)))
+             (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+             (car (cdr (assoc n notes)))))
+  ;;          n))
+      (note-name 5/1 #t)
 #+end_src
 
 #+RESULTS:
-: c
+: 10
 
 *** ocatve reduction
 Multiply ratio by 1/2 as in the following:
@@ -272,8 +285,11 @@ This function takes any fraction as input and returns its octave normalized vers
         (octave-reduction (* R 1/2))
         R))
 
- ;;   (octave-reduction 7/1)
+  (octave-reduction 7/1)
 #+end_src
+
+#+RESULTS: octave_reduction
+: 7/4
 
 *** pitch distance
 $f_a$ should be less than $f_b$
@@ -438,7 +454,7 @@ This is the function to call for generating the notes.
         (format #t "~a\n~a\n~a\n~a\n\n" "\\version \"2.24.1\"" "#(ly:set-option 'use-paper-size-for-page #f)" "#(ly:set-option 'tall-page-formats 'png)" "\\include \"ekme-heji.ily\"")
         (format #t "~a = {\n  ~a\n  ~a\n" "music" "\\accidentalStyle \"dodecaphonic\"" "\\fixed c' {")
         (map (lambda (note)
-               (format #t "    ~a~a\n" (note-name note) (retrieve-ellis-ext note)))
+               (format #t "    ~a~a\n" (note-name note #t) (retrieve-ellis-ext note)))
                R)
         (format #t "  ~a\n~a\n\n" "}" "}")
         (format #t "~a\n  ~a\n    ~a  ~a\n" "\\score {" "\\new Staff {" "\\new Voice {" "\\music")
@@ -567,10 +583,126 @@ Perform a Fermat test if the given number is a prime number. [[https://aliquote.
           sig = SinOsc.ar(freq, 0, amp);
           Out.ar(\out.kr, sig * EnvGen.kr(Env.adsr, \gate.kr(0), doneAction: Done.freeSelf));
   }).add;
-  //a = Synth.new(\osc, [\root, 400, \pos, 4, \amplitude, 0.5 ]);
+//  a = Synth.new(\osc, [\root, 400, \pos, 7, \amplitude, 0.5 , \gate, 1]);
 #+end_src
 
 #+begin_src sclang :results none
+  a = Synth.new(\osc, [\root, 440, \pos, 1, \amplitude, 0.1, \gate, 1 ]);
+#+end_src
+
+Free function
+#+name: free_all
+#+begin_src sclang :results none
+  MIDIIn.removeFuncFrom(\noteOn, ~noteOn);
+  MIDIIn.removeFuncFrom(\noteOff, ~noteOff);
+  MIDIIn.removeFuncFrom(\control, ~control);
+#+end_src
+
+#+Begin_src sclang :results none
+  (
+  MIDIClient.init;
+  MIDIIn.connectAll;
+  MIDIIn.connect;    // init for one port midi interface
+  ~noteOff = { arg src, chan, num, vel;    [chan,num,vel / 127].postln; };
+
+  ~noteOn = { arg src, chan, num, vel;    [chan,num,vel / 127].postln; };
+
+  ~control = { arg src, chan, num, val;
+          var root_l=50, amp_l=0.2;
+          [chan,num,val].postln;
+
+          switch(num)
+          {44} {
+                  if (val == 127,  
+                          {a = Synth.new(\osc, [\root, root_l.midicps, \pos, 1, \amplitude, amp_l, \gate, 1 ]);},
+                          {a.set(\gate, 0); a.free;}); 
+          }
+          {45} {
+                  if (val == 127,  
+                          {b = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 1, \amplitude, amp_l,  \gate, 1]);},
+                          {b.set(\gate, 0); b.free;}); 
+          }
+          {46} {
+                  if (val == 127,  
+                          {c = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
+                          {c.set(\gate, 0); c.free;}); 
+          }
+          {47} {
+                  if (val == 127,  
+                          {d = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
+                          {d.set(\gate, 0); d.free;}); 
+          }
+          {40} {
+                  if (val == 127,  
+                          {e = Synth.new(\osc, [\root, root_l.midicps, \pos, 7, \amplitude, amp_l, \gate, 1 ]);},
+                          {e.set(\gate, 0); e.free;}); 
+          }
+          {41} {
+                  if (val == 127,  
+                          {f = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 7, \amplitude, amp_l,  \gate, 1]);},
+                          {f.set(\gate, 0); f.free;}); 
+          }
+          {42} {
+                  if (val == 127,  
+                          {g = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 7, \amplitude, amp_l, \gate, 1]);},
+                          {g.set(\gate, 0); g.free;}); 
+          }
+          {43} {
+                  if (val == 127,  
+                          {a = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 7, \amplitude, amp_l, \gate, 1]);},
+                          {a.set(\gate, 0); a.free;}); 
+          }
+          {20} {
+                  if (val == 127,  
+                          {h = Synth.new(\osc, [\root, root_l.midicps, \pos, 3, \amplitude, amp_l, \gate, 1 ]);},
+                          {h.set(\gate, 0); h.free;}); 
+          }
+          {21} {
+                  if (val == 127,  
+                          {i = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 3, \amplitude, amp_l,  \gate, 1]);},
+                          {i.set(\gate, 0); i.free;}); 
+          }
+          {22} {
+                  if (val == 127,  
+                          {j = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
+                          {j.set(\gate, 0); j.free;}); 
+          }
+          {23} {
+                  if (val == 127,  
+                          {k = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
+                          {k.set(\gate, 0); k.free;}); 
+          }
+          {16} {
+                  if (val == 127,  
+                          {l = Synth.new(\osc, [\root, root_l.midicps, \pos, 4, \amplitude, amp_l, \gate, 1 ]);},
+                          {l.set(\gate, 0); l.free;}); 
+          }
+          {17} {
+                  if (val == 127,  
+                          {m = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 4, \amplitude, amp_l,  \gate, 1]);},
+                          {m.set(\gate, 0); m.free;}); 
+          }
+          {18} {
+                  if (val == 127,  
+                          {n = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
+                          {n.set(\gate, 0); n.free;}); 
+          }
+          {19} {
+                  if (val == 127,  
+                          {o = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
+                          {o.set(\gate, 0); o.free;}); 
+          }
+  };
+
+  MIDIIn.addFuncTo(\noteOn, ~noteOn);
+  MIDIIn.addFuncTo(\noteOff, ~noteOff);
+  MIDIIn.addFuncTo(\control, ~control);
+  )
+#+end_src
+
+
+
+#+Begin_src sclang :results none
   (
   MIDIClient.init;
   MIDIIn.connectAll;
@@ -581,45 +713,49 @@ Perform a Fermat test if the given number is a prime number. [[https://aliquote.
 
   ~control = { arg src, chan, num, val;
           var root_l=60, amp_l=0.2;
-          //          [chan,num,val].postln;
+          [chan,num,val].postln;
           x = switch(num)
-          {28} {
+          {44}
+
+          { "hello".postln; }
+
+          {99} {
                   if (val == 127,  
                           {a = Synth.new(\osc, [\root, root_l.midicps, \pos, 1, \amplitude, amp_l, \gate, 1 ]);},
                           {a.set(\gate, 0); a.free;}); 
           }
 
-          {29} {
+          {45} {
                   if (val == 127,  
                           {b = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 1, \amplitude, amp_l,  \gate, 1]);},
                           {b.set(\gate, 0); b.free;}); 
           }
-          {30} {
+          {46} {
                   if (val == 127,  
                           {c = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
                           {c.set(\gate, 0); c.free;}); 
           }
-          {31} {
+          {47} {
                   if (val == 127,  
                           {d = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
                           {d.set(\gate, 0); d.free;}); 
           }
-          {24} {
+          {40} {
                   if (val == 127,  
                           {e = Synth.new(\osc, [\root, root_l.midicps, \pos, 2, \amplitude, amp_l, \gate, 1 ]);},
                           {e.set(\gate, 0); e.free;}); 
           }
-          {25} {
+          {41} {
                   if (val == 127,  
                           {f = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 2, \amplitude, amp_l,  \gate, 1]);},
                           {f.set(\gate, 0); f.free;}); 
           }
-          {26} {
+          {42} {
                   if (val == 127,  
                           {g = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 2, \amplitude, amp_l, \gate, 1]);},
                           {g.set(\gate, 0); g.free;}); 
           }
-          {27} {
+          {43} {
                   if (val == 127,  
                           {a = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 2, \amplitude, amp_l, \gate, 1]);},
                           {a.set(\gate, 0); a.free;}); 
@@ -713,7 +849,7 @@ Perform a Fermat test if the given number is a prime number. [[https://aliquote.
                   p.set(\root, (((val / 12) - 6) + root_l).midicps);
           };
 
-          num.postln;
+
 
   };
 
@@ -729,13 +865,7 @@ a.set(\gate, 0);
   a.free;
 #+end_src
 
-Free function
-#+name: free_all
-#+begin_src sclang :results none
-  MIDIIn.removeFuncFrom(\noteOn, ~noteOn);
-  MIDIIn.removeFuncFrom(\noteOff, ~noteOff);
-  MIDIIn.removeFuncFrom(\control, ~control);
-#+end_src
+
 * version and paper
 #+name: version-and-paper
 #+begin_src lilypond :exports none
