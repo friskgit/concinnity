@@ -48,6 +48,7 @@
           \musico \musico
         }
       }
+
   }  
 #+end_src
 
@@ -182,7 +183,6 @@ Table of note names associated with indexes (cents/100) departing from the note 
 #+name: note_names
 | ndx | name |
 |-----+------|
-| -12 | c    |
 | -11 | des  |
 | -10 | d    |
 |  -9 | es   |
@@ -206,7 +206,6 @@ Table of note names associated with indexes (cents/100) departing from the note 
 |   9 | a    |
 |  10 | as   |
 |  11 | b    |
-|  12 | c    |
 |-----+------|
 
 This function takes a ratio and maps it to the table ~note_names~ and returns the closest approximated scale tone from C.
@@ -229,47 +228,97 @@ This function takes a ratio and maps it to the table ~note_names~ and returns th
 #+RESULTS: note_name_orig
 : as
 
-This function takes a ratio R and maps it to the table ~note_names~ and returns the closest approximated scale tone from C.
+This function takes a ratio R and maps it to the table ~note_names~ and returns a pair with the closest approximated scale tone from C and the octave.
 - R is the ratio with which the function is called
 - O (#t/#f) is if the note should be octave reduced or not.
   - c is the cent representation of the ratio where 1/1 is 0
   - n is the calculated index based on cent value (+ 50) truncated to an integer
 #+name: note_name
-#+begin_src scheme :var notes=note_names :results value
-    <<log2_func>>
-    <<octave_reduction>>
-    (define (note-name R O)
-      (let* ((r (if O
-                    (octave-reduction R)
-                    R))
-             (c (* 1200 (log2 r)))
-             (n (inexact->exact (truncate (/ (+ c 50) 100)))))
-             (car (cdr (assoc n notes)))))
-  ;;          n))
-      (note-name 5/1 #t)
+#+begin_src scheme :var notes=note_names :results output :tangle test.scm
+   <<log2_func>>
+   <<octave_reduction>>
+   (define (note-name R O)
+     (let* ((r (if O
+                   (car (octave-reduction R 0))
+                   R))
+            (c (* 1200 (log2 r)))
+            (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+            (cons (car (cdr (assoc n notes))) (cdr (octave-reduction R 0)))))
+  ;;     n))
+  ;;     n))
+      (display (note-name 4/1 #t))
 #+end_src
 
 #+RESULTS: note_name
-: e
+: ice-9/boot-9.scm:1685:16: In procedure raise-exception:
+: Wrong number of arguments to 7
+: 
+: Entering a new prompt.  Type `,bt' for a backtrace or `,q' to continue.
+: scheme@(guile-user) [1]> 
 
 Test function
-#+begin_src scheme :results output :var notes=note_names
-    <<log2_func>>
-    <<octave_reduction>>
-    (define (note-name R O)
-      (let* ((r (if O
-                    (octave-reduction R)
-                    R))
-             (c (* 1200 (log2 r)))
-             (n (inexact->exact (truncate (/ (+ c 50) 100)))))
-             (car (cdr (assoc n notes)))))
-  ;;          n))
-      (note-name 5/1 #t)
+#+name: note_number
+#+begin_src scheme :results value :var notes=note_names
+   <<log2_func>>
+   <<octave_reduction>>
+   (define (note-name R O)
+     (let* ((r (octave-reduction R 0))
+            (c (* 1200 (log2 (car r))))
+            (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+  ;;          (car (cdr (assoc n notes)))))
+       (cons n (cdr r))))
+
+       ;; (display r)))
+     (note-name 2/1 #t)
+#+end_src
+
+#+RESULTS: note_number
+
+Take a note number and the octave and returns the lilypond notation for octaves.
+- note: the note numer 0 <= note < 12
+- oct: the octave -6 < oct < 6
+  
+#+begin_src scheme
+  (define (octave-notation note oct)
+    (if (and (> oct 0) (< oct 6))
+        (octaves oct "")
+        (sub-octaves oct "")))
+
+  (define (octaves oct s)
+    (if (eq? oct 0)
+        s
+        (if (> 0) (octaves (- oct 1) (string-append s "'")))))
+
+  (define (sub-octaves oct s)
+    (if (< oct -5)
+        s
+        (if (< oct 0) (sub-octaves (+ oct -1) (string-append s ",")))))
+
+  (octave-notation -3)
 #+end_src
 
 #+RESULTS:
-: 10
+: ,,,
 
+#+begin_src scheme :noweb yes :results output
+    <<note_number>>
+  (display (
+note-name 2/1 #t))
+#+end_src
+
+#+RESULTS:
+: (0 . 1)
+
+Not working
+#+begin_src scheme
+  (define (test x s)
+    (if (eq? x 0)
+        s
+        (if (and (> x 0) (< x 6))
+            (begin (display x) (test (- 1 x) (string-append s "'")))
+            (if (and (> x -6) (< x 0))
+                (test (+ -1 x) (string-append s ","))))))
+#+end_src
 *** ocatve reduction
 Multiply ratio by 1/2 as in the following:
 #+name: simple_octave_reduction
@@ -277,19 +326,32 @@ Multiply ratio by 1/2 as in the following:
   (* 6/4 1/2)
 #+end_src
 
-This function takes any fraction as input and returns its octave normalized version.
+#+name: octave_reduction_orig
+#+begin_src scheme :results value
+    (define (octave-reduction R)
+      (if (>= R 2)
+          (octave-reduction (* R 1/2))
+          R))
+
+  ;;  (octave-reduction 7/1)
+#+end_src
+
+
+This function takes any fraction as input and returns its octave normalized version. It returns a 'cons with the ratio and the octave.
+- R ration to normalize
+- n the index for the octave (always zero in the call)
 #+name: octave_reduction
 #+begin_src scheme :results value
-  (define (octave-reduction R)
-    (if (> R 2)
-        (octave-reduction (* R 1/2))
-        R))
+    (define (octave-reduction R n)
+      (if (>= R 2)
+        (let ((i (+ n 1)))
+          (octave-reduction (* R 1/2) i))
+          (cons R n)))
 
-  (octave-reduction 7/1)
+  ;;  (octave-reduction 7/1 0)
 #+end_src
 
 #+RESULTS: octave_reduction
-: 7/4
 
 *** pitch distance
 $f_a$ should be less than $f_b$
@@ -407,7 +469,7 @@ Use like this:
 #+RESULTS: simple_factorize
 : 2
 
-*** Call simple-factorization with a string ratio
+*** call simple-factorization with a string ratio
 Give a ratio as string and returns the largest prime factor of the numerator and denominator by way of [[*working scheme factorization][working scheme factorization]]. In order to calculate the alteration to the notation according to the table [[ellis_signs][ellis_signs]], use the function below: [[retrieve_ellis_extension][retrieve_ellis_extension]].
 #+name: full_factorize
 #+begin_src scheme :results value :noweb yes :var ratio="81/80"
@@ -438,36 +500,36 @@ Function to retrieve the extension for the note name as given by the table [[ell
                       ))))
       (car (cddr (assoc p ellis)))))
 
-;; (format #t "~a" (retrieve-ellis-ext 1/1))
+;; (format #t "~a" (retrieve-ellis-ext 5/4))
 #+end_src
 
 #+RESULTS: retrieve_eh_notation
-: oca
+: oaa
 
 This is the function to call for generating the notes.
 #+begin_src scheme :noweb yes :var ellis=ellis_signs notes=note_names :results output :tangle print.scm :wrap "src lilypond :file micro.png"
-   (use-modules (ice-9 format))
-   <<retrieve_eh_notation>>
-   <<note_name>>
-    (define (eh-printer R)
-      (begin
-        (format #t "~a\n~a\n~a\n~a\n\n" "\\version \"2.24.1\"" "#(ly:set-option 'use-paper-size-for-page #f)" "#(ly:set-option 'tall-page-formats 'png)" "\\include \"ekme-heji.ily\"")
-        (format #t "~a = {\n  ~a\n  ~a\n" "music" "\\accidentalStyle \"dodecaphonic\"" "\\fixed c' {")
+  (use-modules (ice-9 format))
+  <<retrieve_eh_notation>>
+  <<note_name>>
+   (define (eh-printer R)
+     (begin
+       (format #t "~a\n~a\n~a\n~a\n\n" "\\version \"2.24.1\"" "#(ly:set-option 'use-paper-size-for-page #f)" "#(ly:set-option 'tall-page-formats 'png)" "\\include \"ekme-heji.ily\"")
+       (format #t "~a = {\n  ~a\n  ~a\n" "music" "\\accidentalStyle \"dodecaphonic\"" "\\fixed c' {")
         (map (lambda (note)
                (format #t "    ~a~a\n" (note-name note #t) (retrieve-ellis-ext note)))
                R)
-        (format #t "  ~a\n~a\n\n" "}" "}")
-        (format #t "~a\n  ~a\n    ~a  ~a\n" "\\score {" "\\new Staff {" "\\new Voice {" "\\music")
-        (format #t "    ~a\n  ~a\n  ~a\n  ~a\n"  "}" "}" "\\layout{}\n  \\midi{}" "}")
-        )
-      )
+       (format #t "  ~a\n~a\n\n" "}" "}")
+       (format #t "~a\n  ~a\n    ~a  ~a\n" "\\score {" "\\new Staff {" "\\new Voice {" "\\music")
+       (format #t "    ~a\n  ~a\n  ~a\n  ~a\n"  "}" "}" "\\layout{}\n  \\midi{}" "}")
+       )
+     )
 
-   (eh-printer '(1/1 3/2 5/4))
+  (eh-printer '(4/1 3/2 5/4))
 #+end_src
 
 #+RESULTS:
 #+begin_src lilypond :file micro.png
-\version "2.24.1"
+(c . 2)\version "2.24.1"
 #(ly:set-option 'use-paper-size-for-page #f)
 #(ly:set-option 'tall-page-formats 'png)
 \include "ekme-heji.ily"
@@ -475,9 +537,9 @@ This is the function to call for generating the notes.
 music = {
   \accidentalStyle "dodecaphonic"
   \fixed c' {
-    c
-    g
-    eoaa
+    (c . 2)
+    (g . 0)
+    (e . 0)oaa
   }
 }
 
@@ -543,7 +605,7 @@ Perform a Fermat test if the given number is a prime number. [[https://aliquote.
     (define (square x) (* x x)) 
 
     (define (expmod base exp m) 
-      (cond ((= exp 0) 1) 
+      (cond ((= exp 0) 1)
             ((even? exp) 
              (remainder (square (expmod base (/ exp 2) m)) 
                         m)) 
