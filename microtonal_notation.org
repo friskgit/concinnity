@@ -2,6 +2,9 @@
 #+LATEX_HEADER: \usepackage[cm]{fullpage}
 # #+PROPERTY: header-args: :noweb yes :exports results
 
+* tasks
+** TODO change lilypond generation to actual lilypond output
+** TODO check for extra commas (e.g. double septimal)
 * microtonal lilypond example
 #+begin_src lilypond :file micro.png
   \version "2.24.1"
@@ -225,6 +228,9 @@ This function takes a ratio and maps it to the table ~note_names~ and returns th
   (note-name 3 4)
 #+end_src
 
+#+RESULTS: note_name_orig
+: as
+
 This function takes a ratio R and maps it to the table ~note_names~ and returns a pair with the closest approximated scale tone from C and the octave.
 - R is the ratio with which the function is called
 - O (#t/#f) is if the note should be octave reduced or not.
@@ -235,23 +241,19 @@ This function takes a ratio R and maps it to the table ~note_names~ and returns 
 #+begin_src scheme :var notes=note_names :results output :tangle test.scm
         <<log2_func>>
         <<octave_reduction>>
-        (define (note-name R O)
+        (define (note-name R O transpose)
           (let* ((oct (if (eq? #t O)
                           0
                           (cdr (octave-reduction R 0))))
                  (r (car (octave-reduction R 0)))
                  (c (* 1200 (log2 r)))
                  (n (inexact->exact (truncate (/ (+ c 50) 100)))))
-            (cons (car (cdr (assoc n notes))) oct)))
+            (cons (car (cdr (assoc (+ n transpose) notes))) oct)))
 
-;;        (display (note-name 4/1 #t))
+        (display (note-name 4/1 #t 7))
 #+end_src
 
-#+RESULTS: note_name_test
-: (c . 0)
-
-
-Test function
+Test function generating just the number (no table lookup)
 #+name: note_number
 #+begin_src scheme :results value :var notes=note_names
    <<log2_func>>
@@ -643,20 +645,7 @@ Perform a Fermat test if the given number is a prime number. [[https://aliquote.
 : #t
 
 * synthesis
-#+begin_src sclang :results none
-  SynthDef(\osc, {
-          var freq, amp, sig;
-          freq = \root.kr(440) * \pos.kr(1);
-          amp = \amplitude.kr(0.2) / \pos.kr(1);
-          sig = SinOsc.ar(freq, 0, amp);
-          Out.ar(\out.kr, sig * EnvGen.kr(Env.adsr, \gate.kr(0), doneAction: Done.freeSelf));
-  }).add;
-//  a = Synth.new(\osc, [\root, 400, \pos, 7, \amplitude, 0.5 , \gate, 1]);
-#+end_src
-
-#+begin_src sclang :results none
-  a = Synth.new(\osc, [\root, 440, \pos, 1, \amplitude, 0.1, \gate, 1 ]);
-#+end_src
+Load ~midi_ctrl~ and play with the preset in the table, or create a new table.
 
 Free function
 #+name: free_all
@@ -666,8 +655,12 @@ Free function
   MIDIIn.removeFuncFrom(\control, ~control);
 #+end_src
 
-#+Begin_src sclang :results none
+#+name: midi_ctrl
+#+begin_src sclang :results none :noweb yes  :var tab=tab_notes
   (
+  <<play_function>>
+  <<set_function>>
+
   MIDIClient.init;
   MIDIIn.connectAll;
   MIDIIn.connect;    // init for one port midi interface
@@ -676,98 +669,98 @@ Free function
   ~noteOn = { arg src, chan, num, vel;    [chan,num,vel / 127].postln; };
 
   ~control = { arg src, chan, num, val;
-          var root_l=50, amp_l=0.2;
+          "here".postln;
           [chan,num,val].postln;
-
-          switch(num)
-          {44} {
-                  if (val == 127,  
-                          {a = Synth.new(\osc, [\root, root_l.midicps, \pos, 1, \amplitude, amp_l, \gate, 1 ]);},
-                          {a.set(\gate, 0); a.free;}); 
-          }
-          {45} {
-                  if (val == 127,  
-                          {b = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 1, \amplitude, amp_l,  \gate, 1]);},
-                          {b.set(\gate, 0); b.free;}); 
-          }
-          {46} {
-                  if (val == 127,  
-                          {c = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
-                          {c.set(\gate, 0); c.free;}); 
-          }
-          {47} {
-                  if (val == 127,  
-                          {d = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 1, \amplitude, amp_l, \gate, 1]);},
-                          {d.set(\gate, 0); d.free;}); 
-          }
-          {40} {
-                  if (val == 127,  
-                          {e = Synth.new(\osc, [\root, root_l.midicps, \pos, 7, \amplitude, amp_l, \gate, 1 ]);},
-                          {e.set(\gate, 0); e.free;}); 
-          }
-          {41} {
-                  if (val == 127,  
-                          {f = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 7, \amplitude, amp_l,  \gate, 1]);},
-                          {f.set(\gate, 0); f.free;}); 
-          }
-          {42} {
-                  if (val == 127,  
-                          {g = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 7, \amplitude, amp_l, \gate, 1]);},
-                          {g.set(\gate, 0); g.free;}); 
-          }
-          {43} {
-                  if (val == 127,  
-                          {a = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 7, \amplitude, amp_l, \gate, 1]);},
-                          {a.set(\gate, 0); a.free;}); 
-          }
-          {20} {
-                  if (val == 127,  
-                          {h = Synth.new(\osc, [\root, root_l.midicps, \pos, 3, \amplitude, amp_l, \gate, 1 ]);},
-                          {h.set(\gate, 0); h.free;}); 
-          }
-          {21} {
-                  if (val == 127,  
-                          {i = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 3, \amplitude, amp_l,  \gate, 1]);},
-                          {i.set(\gate, 0); i.free;}); 
-          }
-          {22} {
-                  if (val == 127,  
-                          {j = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
-                          {j.set(\gate, 0); j.free;}); 
-          }
-          {23} {
-                  if (val == 127,  
-                          {k = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 3, \amplitude, amp_l, \gate, 1]);},
-                          {k.set(\gate, 0); k.free;}); 
-          }
-          {16} {
-                  if (val == 127,  
-                          {l = Synth.new(\osc, [\root, root_l.midicps, \pos, 4, \amplitude, amp_l, \gate, 1 ]);},
-                          {l.set(\gate, 0); l.free;}); 
-          }
-          {17} {
-                  if (val == 127,  
-                          {m = Synth.new(\osc, [\root, (root_l + 7).midicps, \pos, 4, \amplitude, amp_l,  \gate, 1]);},
-                          {m.set(\gate, 0); m.free;}); 
-          }
-          {18} {
-                  if (val == 127,  
-                          {n = Synth.new(\osc, [\root, (root_l + 2).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
-                          {n.set(\gate, 0); n.free;}); 
-          }
-          {19} {
-                  if (val == 127,  
-                          {o = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
-                          {o.set(\gate, 0); o.free;}); 
-          }
+          if(chan == 0 && num >= 36 && num <= 51,
+                  {
+                          val.postln;
+                          num.postln;			
+                          if(val > 0,
+                                  {~player.value(num)},         // here is where the actions is}
+                                  {~setter.value(num, \gate, 0)}
+                          );
+                  });
   };
-
   MIDIIn.addFuncTo(\noteOn, ~noteOn);
   MIDIIn.addFuncTo(\noteOff, ~noteOff);
   MIDIIn.addFuncTo(\control, ~control);
-  )
+  );
 #+end_src
 
+#+name: play_function
+#+begin_src sclang :results none :noweb yes :var tab=tab_notes
+  <<harmonic_synthdef>>
+  <<lookup>>
+  ~player = { arg val=0;
+          var index = val - 36, fund  = 60, ratio = 1/1, freq = ~main_root;
+          ratio = ~lookup.value(index)[3];
+          fund = fund + ~lookup.value(index)[1];
+          freq = ratio * (fund.midicps);
+          "lookup gives: ".post; ~lookup.value(index).postln;
+          "index is: ".post; index.postln;
+          "ratio is: ".post; ratio.postln;
+          "freq is: ".post; freq.postln;
+          ~synths.put(index, Synth.new(\osc, [\root, fund, \freq, freq, \amplitude, 0.3 , \gate, 1]));
+  };
+
+#+end_src
+
+#+name: set_function
+#+begin_src sclang :results none
+  ~setter = { arg index, param, val=0;          
+          var synth, i;
+          i = index - 36;
+          synth = ~synths.at(i);
+          synth.set(param, 0);
+  };
+#+end_src
+
+#+name: harmonic_synthdef
+#+begin_src sclang :results none
+  SynthDef(\osc, { arg root=440, freq=440, amplitude=0.2, gate=1, out=0;
+          var amp, sig;
+          amp = amplitude;
+          sig = SinOsc.ar(freq, 0, amp);
+          Out.ar(out, sig * EnvGen.kr(Env.adsr, gate, doneAction: Done.freeSelf));
+  }).add;
+#+end_src
+
+Function returns an array with the key, octave, index and ratio (as a decimal)
+#+name: lookup
+#+begin_src sclang :results none :var tab=tab_notes
+  ~lookup = { arg index=0;
+          var i = index + 2,
+          key = tab[i][1],
+          octave = tab[i][2],
+          harmi = tab[i][3],
+          ratio = tab[i][4] / tab[i][5],
+          result;
+          result = [key, octave, harmi, ratio];
+  };
+#+end_src
+
+First column is an index, second is the root, third is the index in the harmonic series.
+#+name: tab_notes
+| index | BU16 | root | harmonic | 5- limit |   |
+|       |      |      |   series |        N | D |
+|-------+------+------+----------+----------+---|
+|     0 |   36 |    0 |        1 |        1 | 1 |
+|     1 |   37 |    0 |        2 |        3 | 2 |
+|     2 |   38 |    0 |        3 |        5 | 4 |
+|     3 |   39 |    0 |        4 |        6 | 5 |
+|     4 |   40 |    0 |        5 |        8 | 5 |
+|     5 |   41 |    0 |        6 |        5 | 3 |
+|     6 |   42 |    0 |        7 |        4 | 3 |
+|     7 |   43 |    0 |        8 |          |   |
+|-------+------+------+----------+----------+---|
+|     8 |   44 |    7 |        9 |        1 | 1 |
+|     9 |   45 |    7 |       10 |        3 | 2 |
+|    10 |   46 |    7 |       11 |        5 | 4 |
+|    11 |   47 |    7 |       12 |        6 | 5 |
+|    12 |   48 |    7 |       13 |        8 | 5 |
+|    13 |   49 |    7 |       14 |        5 | 3 |
+|    14 |   50 |    7 |       15 |        4 | 3 |
+|    15 |   51 |    7 |       16 |          |   |
 
 
 #+Begin_src sclang :results none
@@ -868,57 +861,54 @@ Free function
                           {o = Synth.new(\osc, [\root, (root_l + 9).midicps, \pos, 4, \amplitude, amp_l, \gate, 1]);},
                           {o.set(\gate, 0); o.free;}); 
           }
-          {44} {
+          {60} {
                   a.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {45} {
+          {61} {
                   b.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {46} {
+          {62} {
                   c.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {47} {
+          {63} {
                   d.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {40} {
+          {56} {
                   e.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {41} {
+          {57} {
                   f.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {42} {
+          {58} {
                   g.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {43} {
+          {59} {
                   h.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {36} {
+          {52} {
                   i.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {37} {
+          {53} {
                   j.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {38} {
+          {54} {
                   k.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {39} {
+          {55} {
                   l.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {32} {
+          {48} {
                   m.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {33} {
+          {49} {
                   n.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {34} {
+          {50} {
                   o.set(\root, (((val / 12) - 6) + root_l).midicps);
           }
-          {35} {
+          {51} {
                   p.set(\root, (((val / 12) - 6) + root_l).midicps);
           };
-
-
-
   };
 
   MIDIIn.addFuncTo(\noteOn, ~noteOn);
@@ -926,13 +916,6 @@ Free function
   MIDIIn.addFuncTo(\control, ~control);
   )
 #+end_src
-
-#+begin_src sclang
-  //  a.set(\root, 100);
-a.set(\gate, 0);
-  a.free;
-#+end_src
-
 
 * version and paper
 #+name: version-and-paper
