@@ -233,7 +233,8 @@ This function takes a ratio and maps it to the table ~note_names~ and returns th
 
 This function takes a ratio R and maps it to the table ~note_names~ and returns a pair with the closest approximated scale tone from C and the octave.
 - R is the ratio with which the function is called
-- O (#t/#f) is if the note should be octave reduced or not.
+- O (#t/#f) is if the note should be octave reduced or not
+- transpose is the number of notes to transpose from standard (C)
   - c is the cent representation of the ratio where 1/1 is 0
   - n is the calculated index based on cent value (+ 50) truncated to an integer
   - oct is the octave position, 0 if octave-reduction is #t
@@ -250,8 +251,11 @@ This function takes a ratio R and maps it to the table ~note_names~ and returns 
                  (n (inexact->exact (truncate (/ (+ c 50) 100)))))
             (cons (car (cdr (assoc (+ n transpose) notes))) oct)))
 
-        (display (note-name 4/1 #t 7))
+;;        (display (note-name 4/1 #t 7))
 #+end_src
+
+#+RESULTS: note_name
+: (c . 0)
 
 Test function generating just the number (no table lookup)
 #+name: note_number
@@ -447,9 +451,8 @@ Added (unnecessary) check for prime using a [[*fermat][fermat test]] which is li
   ;; (simple-factorize 25 2)
 #+end_src
 
-Use like this:
-
-~(simple-factorize N p)~ where N is the number to factorize and p is the starting prime (most likely always 2)
+**** alternate factorization
+Use like this: ~(simple-factorize N p)~ where N is the number to factorize and p is the starting prime (most likely always 2). This version checks if number is a prime.
 #+name: simple_factorize_fermat
 #+begin_src scheme :results value :noweb yes
    <<is_prime>>
@@ -463,13 +466,82 @@ Use like this:
               )
              x)))
 
-;;  (simple-factorize 32 2)
+  (simple-factorize 32 2)
 #+end_src
 
-#+RESULTS: simple_factorize
-: 2
+Use like this: ~(simple-factorize N p i)~ where
+- N is the number to factorize
+- p is the starting prime (most likely always 2)
+- i is the index of the number of prime factorizations performed (for a prime this will be zero and for a multiple of a prime it will be > 0)
+Returns a list of the prime and the multiple 
+#+name: simple_factorize_multiple
+#+begin_src scheme :results value :noweb yes
+   (define (simple-factorize-m x p i)
+     (if (>= x (* p p))
+             (cond
+              [(eq? 0 (remainder x p)) (simple-factorize-m (/ x p) p (+ i 1))]
+              [else (simple-factorize-m x (+ p 1) i)]
+              )
+           (list p i)))
 
-*** call simple-factorization with a string ratio
+  (simple-factorize-m 21 2 0)
+#+end_src
+
+#+RESULTS: simple_factorize_multiple
+| 3 | 1 |
+
+
+*** simple-factorization with a string ratio
+*This is the function that is used in the notation script.*
+
+Function to retrieve the extension for the note name as given by the table [[ellis_signs][ellis_signs]] based on the largest common prime for the nominator and the denominator in the ratio given by ~R~.
+#+name: retrieve_eh_notation
+#+begin_src scheme :results output :noweb yes :var ellis=ellis_signs notes=note_names exp=ellis_signs_exponent
+        <<simple_factorize>>
+       <<simple_factorize_multiple>>
+        (define (retrieve-ellis-ext R)
+          (let* ((p (apply max
+                           (list 
+                            (simple-factorize (numerator R) 2)
+                            (simple-factorize (denominator R) 2)
+                            ))))
+            p))
+  ;;          (car (cddr (assoc p ellis)))))
+
+         (define (retrieve-ellis-exponent R)
+           (let* ((m (car (cdr (simple-factorize-m (numerator R) 2 0)))))
+             m))
+  ;;           (car (cdr (assoc m exp)))))
+       ;;      m))
+
+   (define (ellis-notation R)
+     (let* ((a (retrieve-ellis-ext R))
+            (b (retrieve-ellis-exponent R)))
+       (if (> a 4)
+           (list (car (cddr (assoc a ellis))) (car (cdr (assoc b exp))))
+           0
+           )))
+
+     ;;  (format #t "~a~a" (retrieve-ellis-ext 5/4) (retrieve-ellis-exponent 5/4))
+  (display (ellis-notation 1/1))
+#+end_src
+
+#+RESULTS: retrieve_eh_notation
+: 0
+
+
+#+name: retrieve_eh_notation_exp
+#+begin_src scheme :results output :noweb yes :var ellis=ellis_signs exp=ellis_signs_exponent notes=note_names :tangle factorize.scm
+    <<simple_factorize>>
+
+  (format #t "~a" (retrieve-ellis-ext 5/4))
+#+end_src
+
+#+RESULTS: retrieve_eh_notation_obsolete
+: a
+
+
+**** alternate factorization functions
 Give a ratio as string and returns the largest prime factor of the numerator and denominator by way of [[*working scheme factorization][working scheme factorization]]. In order to calculate the alteration to the notation according to the table [[ellis_signs][ellis_signs]], use the function below: [[retrieve_ellis_extension][retrieve_ellis_extension]].
 #+name: full_factorize
 #+begin_src scheme :results value :noweb yes :var ratio="81/80"
@@ -482,47 +554,34 @@ Give a ratio as string and returns the largest prime factor of the numerator and
              )
             )
      )
-  (full-factorize "81/80")
+  (full-factorize "5/1")
 #+end_src
 
 #+RESULTS: full_factorize
 : 5
 
-Function to retrieve the extension for the note name as given by the table [[ellis_signs][ellis_signs]] based on the largest common prime for the nominator and the denominator in the ratio given by ~R~.
-#+name: retrieve_eh_notation
-#+begin_src scheme :results output :noweb yes :var ellis=ellis_signs notes=note_names
-  <<simple_factorize>>
-  (define (retrieve-ellis-ext R)
-    (let* ((p (apply max
-                     (list 
-                      (simple-factorize (numerator R) 2)
-                      (simple-factorize (denominator R) 2)
-                      ))))
-      (car (cddr (assoc p ellis)))))
-
-;; (format #t "~a" (retrieve-ellis-ext 5/4))
-#+end_src
-
-#+RESULTS: retrieve_eh_notation
-: oaa
-
+*** generate lilypond code
 This is the function to call for generating the notes. Note that the call to note-name currently can only handle a #t value.
-#+begin_src scheme :noweb yes :var ellis=ellis_signs notes=note_names :results output :tangle print.scm :wrap "src lilypond :file micro.png"
+- R is the list of ratios to notate
+- octred is a boolean for octave reduction
+- T is the number of steps to transpose from middle C
+#+begin_src scheme :noweb yes :var ellis=ellis_signs notes=note_names exp=ellis_signs_exponent :results output :tangle print.scm :wrap "src lilypond :file micro.png"
   (use-modules (ice-9 format))
   <<retrieve_eh_notation>>
   <<note_name>>
   <<octave_to_lily>>
-  (define (eh-printer R octred)
+  (define (eh-printer R octred T)
     (begin
       (format #t "~a\n~a\n~a\n~a\n\n" "\\version \"2.24.1\"" "#(ly:set-option 'use-paper-size-for-page #f)" "#(ly:set-option 'tall-page-formats 'png)" "\\include \"ekme-heji.ily\"")
       (format #t "~a = {\n  ~a\n  ~a\n" "music" "\\accidentalStyle \"dodecaphonic\"" "\\fixed c' {")
       (map (lambda (note)
-             (format #t "    ~a~a~a\n"
-                     (car (note-name note octred))
+             (format #t "    ~a~a~a~a\n"
+                     (car (note-name note octred T))
                      (retrieve-ellis-ext note)
-                     (if (unspecified? (octave-notation (cdr (note-name note octred))))
+                     (retrieve-ellis-exponent note)
+                     (if (unspecified? (octave-notation (cdr (note-name note octred T))))
                          ""
-                         (octave-notation (cdr (note-name note octred))))))
+                         (octave-notation (cdr (note-name note octred T))))))
            R)
       (format #t "  ~a\n~a\n\n" "}" "}")
       (format #t "~a\n  ~a\n    ~a  ~a\n" "\\score {" "\\new Staff {" "\\new Voice {" "\\music")
@@ -530,7 +589,7 @@ This is the function to call for generating the notes. Note that the call to not
       )
     )
 
-  (eh-printer '(1/1 2/1 3/1 4/1 5/1 6/1) #f)
+  (eh-printer '(1/1 2/1 3/1 4/1 5/1 6/1) #f 0)
 #+end_src
 
 #+RESULTS:
@@ -547,8 +606,8 @@ music = {
     c'
     g'
     c''
-    eoaa''
-    g''
+    eoa''
+    ga''
   }
 }
 
@@ -597,12 +656,24 @@ The logic here should be the following:
 |     1 | notename + (alteration)       | ""       |
 |     2 | notename + (alteration) (f/s) | ""       |
 |     3 | notename + (alteration)       | ""       |
-|     5 | notename + (alteration) + oaa | "oaa"    |
-|     7 | notename + (alteration) + oba | "oba"    |
-|    11 | notename + (alteration) + oca | "oca"    |
-|    13 | notename + (alteration) + oda | "oda"    |
-|    17 | notename + (alteration) + oea | "aea"    |
+|     5 | notename + (alteration) + oaa | "oa"     |
+|     7 | notename + (alteration) + oba | "ob"     |
+|    11 | notename + (alteration) + oca | "oc"     |
+|    13 | notename + (alteration) + oda | "od"     |
+|    17 | notename + (alteration) + oea | "ae"     |
 |-------+-------------------------------+----------|
+
+The logic here should be the following:
+#+name: ellis_signs_exponent
+| exponent | notename |
+|----------+----------|
+|        0 | "a"      |
+|        1 | "b"      |
+|        2 | "c"      |
+|        3 | "d"      |
+|        4 | "e"      |
+|        5 |          |
+|----------+----------|
 
 ** prime numbers
 This works fine.
@@ -939,7 +1010,7 @@ First column is an index, second is the root, third is the index in the harmonic
   )
 #+end_src
 
-* version and paper
+* lily version and paper
 #+name: version-and-paper
 #+begin_src lilypond :exports none
   \version "2.24.1"
