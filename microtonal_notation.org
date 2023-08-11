@@ -237,29 +237,31 @@ This function takes a ratio R and maps it to the table ~note_names~ and returns 
                     (cdr (octave-reduction R 0))))
            (r (car (octave-reduction R 0)))
            (c (* 1200 (log2 r)))
-           (n (inexact->exact (truncate (/ (+ c 50) 100)))))
+           (n (remainder (inexact->exact
+               (truncate (/ (+ (abs c) 50) 100))) 12)))
       (cons (car (cdr (assoc (+ n transpose) notes))) oct)))
 
-  (display (note-name 1/2 #t 0))
+;;  (display (note-name 1/4 #f 0))
 #+end_src
 
 #+RESULTS: note_name
-: (des . 0)
+: (c . 0)
 
 Test function generating just the number (no table lookup)
 #+name: note_number
 #+begin_src scheme :results output :var notes=note_names
-  <<log2_func>>
-  <<octave_reduction>>
-  (define (note-name R O)
-    (let* ((r (octave-reduction R 0))
-           (c (* 1200 (log2 (car r))))
-           (n (remainder (inexact->exact
-               (truncate (/ (+ (abs c) 50) 100))) 12)))
-      ;;     (cons n (cdr r))))
-      (abs n)))
+    <<log2_func>>
+    <<octave_reduction>>
+    (define (note-name R O)
+      (let* ((r (octave-reduction R 0))
+             (c (* 1200 (log2 (car r))))
+             (n (remainder
+                 (inexact->exact
+                 (truncate (/ (+ (abs c) 50) 100))) 12)))
+        ;;     (cons n (cdr r))))
+        (abs n)))
 
-   (display (note-name 2/3 #f))
+     (display (note-name 2/3 #f))
 #+end_src
 
 #+RESULTS: note_number
@@ -335,17 +337,31 @@ This function takes any fraction as input and returns its octave normalized vers
 - R ration to normalize
 - n the index for the octave (always zero in the call)
 #+name: octave_reduction
-#+begin_src scheme :results value
-    (define (octave-reduction R n)
-      (if (>= R 2)
-        (let ((i (+ n 1)))
-          (octave-reduction (* R 1/2) i))
+#+begin_src scheme :results output
+  (define (octave-red R n)
+        (if (>= R 2)
+          (let ((i (+ n 1)))
+            (octave-red (* R 1/2) i))
           (cons R n)))
+     
+  (define (octave-red-sub R n)
+    (if (< R 1)
+      (let ((i (- n 1)))
+        (octave-red-sub (* R 2/1) i))
+      (cons R n)))
 
-  ;;  (octave-reduction 7/1 0)
+  (define (octave-reduction R)
+    (if (>= R 2)
+        (octave-red R 0)
+        (octave-red-sub R 0)
+        )
+    )
+
+  (display (octave-reduction 2/1))
 #+end_src
 
 #+RESULTS: octave_reduction
+: (1 . 1)
 
 *** pitch distance
 $f_a$ should be less than $f_b$
@@ -484,7 +500,7 @@ Returns a list of the prime and the multiple
 *This is the function that is used in the notation script.*
 
 Function to retrieve the extension for the note name as given by the table [[ellis_signs][ellis_signs]] and [[ellis_signs_exponent][ellis_signs_exponent]] based on the largest common prime for the nominator and the denominator in the ratio given by ~R~. The number of commas is also retrieved here.
-#+name: retrieve_eh_notation
+#+name: ellis_notation
 #+begin_src scheme :results output :noweb yes :var ellis=ellis_signs notes=note_names exp=ellis_signs_exponent
   <<simple_factorize>>
   <<simple_factorize_multiple>>
@@ -513,10 +529,11 @@ Function to retrieve the extension for the note name as given by the table [[ell
       )
     )
 
-  (display (string-join (ellis-notation 2/1) ""))
+  (display (string-join (ellis-notation 33/32) ""))
 #+end_src
 
-#+RESULTS: retrieve_eh_notation
+#+RESULTS: ellis_notation
+: ocb
 
 **** alternate factorization functions
 Give a ratio as string and returns the largest prime factor of the numerator and denominator by way of [[*working scheme factorization][working scheme factorization]]. In order to calculate the alteration to the notation according to the table [[ellis_signs][ellis_signs]], use the function below: [[retrieve_ellis_extension][retrieve_ellis_extension]].
@@ -544,7 +561,7 @@ This is the function to call for generating the notes. Note that the call to not
 - T is the number of steps to transpose from middle C
 #+begin_src scheme :noweb yes :var ellis=ellis_signs notes=note_names exp=ellis_signs_exponent :results output :tangle print.scm :wrap "src lilypond :file micro.png"
   (use-modules (ice-9 format))
-  <<retrieve_eh_notation>>
+  <<ellis_notation>>
   <<note_name>>
   <<octave_to_lily>>
   (define (eh-printer R octred T)
@@ -570,7 +587,7 @@ This is the function to call for generating the notes. Note that the call to not
 
 #+RESULTS:
 #+begin_src lilypond :file micro.png
-\version "2.24.1"
+ocb\version "2.24.1"
 #(ly:set-option 'use-paper-size-for-page #f)
 #(ly:set-option 'tall-page-formats 'png)
 \include "ekme-heji.ily"
@@ -606,7 +623,7 @@ This is the function to call for generating a notes block only to be inserted in
 - T is the number of steps to transpose from middle C
 #+begin_src scheme :var  ellis=ellis_signs notes=note_names exp=ellis_signs_exponent :results output :wrap src lilypond :tangle print.scm
   (use-modules (ice-9 format))
-  <<retrieve_eh_notation>>
+  <<ellis_notation>>
   <<note_name>>
   <<octave_to_lily>>
   (define (eh-printer fractions octred T)
